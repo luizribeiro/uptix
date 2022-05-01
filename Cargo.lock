@@ -176,6 +176,7 @@ name = "docknix"
 version = "0.1.0"
 dependencies = [
  "dkregistry",
+ "regex",
  "tokio",
 ]
 
