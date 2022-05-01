@@ -56,7 +56,10 @@ async fn main() {
         let (registry, image, tag) = get_image_components(raw_image);
 
         let digest = get_digest(registry, image, tag).await.unwrap();
-        lock.insert(name.to_string(), digest.to_string());
+        lock.insert(
+            name.to_string(),
+            format!("{}@{}", raw_image, digest.to_string()),
+        );
     }
     let output = serde_json::to_string(&lock).unwrap();
     println!("{}", output);
