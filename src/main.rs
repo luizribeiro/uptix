@@ -5,6 +5,9 @@ use rnix::types::*;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::{env, fs};
+use rnix::{NixLanguage, SyntaxKind, SyntaxNode};
+use rnix::types::Str;
+use rnix::value::StrPart;
 
 fn discover_nix_files() -> Vec<PathBuf> {
     let mut files = Vec::new();
@@ -14,6 +17,47 @@ fn discover_nix_files() -> Vec<PathBuf> {
         }
     }
     return files;
+}
+
+fn visit(node: SyntaxNode) -> Vec<String> {
+    // lol this is wonky AF
+    if node.kind() != SyntaxKind::NODE_APPLY {
+        let mut images = Vec::new();
+        for child in node.children() {
+            images.append(&mut visit(child));
+        }
+        return images;
+    }
+
+    let mut children = node.children();
+    let select = children.next();
+    if select.is_none() || select.as_ref().unwrap().kind() != SyntaxKind::NODE_SELECT {
+        return Vec::new();
+    }
+
+    if select.as_ref().unwrap().text() != "docknix.image" {
+        return Vec::new();
+    }
+
+    let string = children.next();
+    if string.is_none() {
+        return vec![];
+    }
+    let s = string.unwrap();
+    if s.kind() != SyntaxKind::NODE_STRING {
+        return vec![];
+    }
+
+    let mut x = s.text().to_string();
+    x.pop();
+    x.remove(0);
+    return vec![x];
+}
+
+fn extract_docker_images(file_path: &str) -> Vec<String> {
+    let content = fs::read_to_string(file_path).unwrap();
+    let ast = rnix::parse(&content);
+    return visit(ast.node());
 }
 
 fn get_image_components(raw_image: &str) -> (&str, &str, &str) {
@@ -40,41 +84,22 @@ async fn get_digest<'a>(
 
 #[tokio::main]
 async fn main() {
-    let mut iter = env::args().skip(1).peekable();
-    let files = discover_nix_files();
-    println!("{:?}", files);
-    if iter.peek().is_none() {
-        eprintln!("Usage: docknix <file>");
-        return;
+    let mut all_docker_images = vec![];
+    for file in discover_nix_files() {
+        all_docker_images.append(&mut extract_docker_images(file.to_str().unwrap()));
     }
-    let file = iter.next().unwrap();
-    let content = match fs::read_to_string(file) {
-        Ok(content) => content,
-        Err(err) => {
-            eprintln!("Error: {}", err);
-            return;
-        }
-    };
-    let ast = rnix::parse(&content);
-    let set = ast.root().inner().and_then(AttrSet::cast).unwrap();
+
     let mut lock = BTreeMap::new();
-    for entry in set.entries() {
-        let key = entry.key().unwrap();
-        let ident = key.path().last().and_then(Ident::cast);
-        let name = ident.as_ref().map_or("error", Ident::as_str);
-
-        let value = entry.value().unwrap();
-        let token = value.to_string();
-        let raw_image = &token[1..token.len() - 1];
-
-        let (registry, image, tag) = get_image_components(raw_image);
+    for name in all_docker_images {
+        let (registry, image, tag) = get_image_components(name.as_str());
 
         let digest = get_digest(registry, image, tag).await.unwrap();
         lock.insert(
             name.to_string(),
-            format!("{}@{}", raw_image, digest.to_string()),
+            format!("{}@{}", name, digest.to_string()),
         );
     }
+
     let output = serde_json::to_string_pretty(&lock).unwrap();
     println!("{}", output);
 }
