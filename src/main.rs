@@ -1,6 +1,7 @@
 use dkregistry::v2::Client;
 use regex::Regex;
 use rnix::types::*;
+use std::collections::HashMap;
 use std::{env, fs};
 
 fn get_image_components(raw_image: &str) -> (&str, &str, &str) {
@@ -42,6 +43,7 @@ async fn main() {
     };
     let ast = rnix::parse(&content);
     let set = ast.root().inner().and_then(AttrSet::cast).unwrap();
+    let mut lock = HashMap::new();
     for entry in set.entries() {
         let key = entry.key().unwrap();
         let ident = key.path().last().and_then(Ident::cast);
@@ -53,8 +55,9 @@ async fn main() {
 
         let (registry, image, tag) = get_image_components(raw_image);
 
-        println!("{} => {}", name, raw_image);
         let digest = get_digest(registry, image, tag).await.unwrap();
-        println!("    {}", digest);
+        lock.insert(name.to_string(), digest.to_string());
     }
+    let output = serde_json::to_string(&lock).unwrap();
+    println!("{}", output);
 }

@@ -193,6 +193,7 @@ dependencies = [
  "dkregistry",
  "regex",
  "rnix",
+ "serde_json",
  "tokio",
 ]
 
