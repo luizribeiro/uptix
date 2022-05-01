@@ -1,7 +1,7 @@
 use dkregistry::v2::Client;
 use regex::Regex;
 use rnix::types::*;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::{env, fs};
 
 fn get_image_components(raw_image: &str) -> (&str, &str, &str) {
@@ -43,7 +43,7 @@ async fn main() {
     };
     let ast = rnix::parse(&content);
     let set = ast.root().inner().and_then(AttrSet::cast).unwrap();
-    let mut lock = HashMap::new();
+    let mut lock = BTreeMap::new();
     for entry in set.entries() {
         let key = entry.key().unwrap();
         let ident = key.path().last().and_then(Ident::cast);
@@ -61,6 +61,6 @@ async fn main() {
             format!("{}@{}", raw_image, digest.to_string()),
         );
     }
-    let output = serde_json::to_string(&lock).unwrap();
+    let output = serde_json::to_string_pretty(&lock).unwrap();
     println!("{}", output);
 }
