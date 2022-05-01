@@ -1,8 +1,10 @@
 use dkregistry::v2::Client;
 use regex::Regex;
+use rnix::types::*;
+use std::{env, fs};
 
 fn get_image_components(raw_image: &str) -> (&str, &str, &str) {
-    let re = Regex::new(r"(?:([a-z0-9.-]+)/)?([a-z-]+/[a-z-]+):?([a-z0-9.-]+)?").unwrap();
+    let re = Regex::new(r"(?:([a-z0-9.-]+)/)?([a-z0-9-]+/[a-z0-9-]+):?([a-z0-9.-]+)?").unwrap();
     let caps = re.captures(raw_image).unwrap();
 
     let registry = caps.get(1).map_or("registry-1.docker.io", |m| m.as_str());
@@ -25,10 +27,34 @@ async fn get_digest<'a>(
 
 #[tokio::main]
 async fn main() {
-    let (registry, image, tag) = get_image_components("acockburn/appdaemon:4.2.1");
-    println!("registry: {}", registry);
-    println!("image: {}", image);
-    println!("tag: {}", tag);
-    let digest = get_digest(registry, image, tag).await.unwrap();
-    println!("digest: {}", digest);
+    let mut iter = env::args().skip(1).peekable();
+    if iter.peek().is_none() {
+        eprintln!("Usage: docknix <file>");
+        return;
+    }
+    let file = iter.next().unwrap();
+    let content = match fs::read_to_string(file) {
+        Ok(content) => content,
+        Err(err) => {
+            eprintln!("Error: {}", err);
+            return;
+        }
+    };
+    let ast = rnix::parse(&content);
+    let set = ast.root().inner().and_then(AttrSet::cast).unwrap();
+    for entry in set.entries() {
+        let key = entry.key().unwrap();
+        let ident = key.path().last().and_then(Ident::cast);
+        let name = ident.as_ref().map_or("error", Ident::as_str);
+
+        let value = entry.value().unwrap();
+        let token = value.to_string();
+        let raw_image = &token[1..token.len() - 1];
+
+        let (registry, image, tag) = get_image_components(raw_image);
+
+        println!("{} => {}", name, raw_image);
+        let digest = get_digest(registry, image, tag).await.unwrap();
+        println!("    {}", digest);
+    }
 }
