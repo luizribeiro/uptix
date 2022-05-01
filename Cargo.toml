@@ -1,0 +1,8 @@
+[package]
+name = "docknix"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+dkregistry = "0.5.0"
+tokio = { version = "0.2", features = ["full"] }
