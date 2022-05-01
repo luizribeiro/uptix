@@ -87,11 +87,20 @@ async fn get_digest<'a>(
 
 #[tokio::main]
 async fn main() {
+    let all_files = discover_nix_files();
+    println!("Found {} nix files", all_files.len());
+
+    print!("Parsing files... ");
+    std::io::stdout().flush().unwrap();
     let mut all_docker_images = vec![];
-    for file in discover_nix_files() {
+    for file in all_files {
         all_docker_images.append(&mut extract_docker_images(file.to_str().unwrap()));
     }
+    println!("Done.");
+    println!("Found {} docker image references", all_docker_images.len());
 
+    print!("Looking for updates... ");
+    std::io::stdout().flush().unwrap();
     let mut lock = BTreeMap::new();
     for name in all_docker_images {
         let (registry, image, tag) = get_image_components(name.as_str());
@@ -102,7 +111,9 @@ async fn main() {
             format!("{}@{}", name, digest.to_string()),
         );
     }
+    println!("Done.");
 
     let mut file = fs::File::create("docknix.lock").unwrap();
     file.write_all(serde_json::to_string_pretty(&lock).unwrap().as_bytes()).unwrap();
+    println!("Wrote docknix.lock successfully");
 }
