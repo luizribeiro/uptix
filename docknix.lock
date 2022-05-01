@@ -1,0 +1,13 @@
+{
+  "acockburn/appdaemon:latest": "acockburn/appdaemon:latest@sha256:aea763d380a6f80e7c2c6e95637a58289f513aad1ed00a9dbea14b2de24d10c5",
+  "dokku/dokku:latest": "dokku/dokku:latest@sha256:da1fcee86712e7e1ff859f3379479fd4eacb90ccd8deb48969bc7ec1897e54fa",
+  "ghcr.io/home-assistant/home-assistant:stable": "ghcr.io/home-assistant/home-assistant:stable@sha256:72e1c45e367cd83845f2a3e29f42a3ab158765ee3f48d9f9b4b8dbd5b71009bd",
+  "itzg/minecraft-bedrock-server:latest": "itzg/minecraft-bedrock-server:latest@sha256:41855f7d8daa3cf717610fb2618aaebb323f3432b846e12f71ce596a1c15f4a9",
+  "linuxserver/prowlarr:nightly": "linuxserver/prowlarr:nightly@sha256:cac7fc711a82ac309e0e474a453b534a7991f1c56f98af83dea86499cc2eb176",
+  "myoung34/github-runner:latest": "myoung34/github-runner:latest@sha256:c4d84ccbe6d3dd068940ca0e895ed0bfba036e46fa43b6c9de56b398f48543a7",
+  "robbertkl/ipv6nat:latest": "robbertkl/ipv6nat:latest@sha256:39ff3fd00b93923a9185672a980e1b39888e17474d8254bec162db28a3c8d81b",
+  "shlinkio/shlink-web-client:stable": "shlinkio/shlink-web-client:stable@sha256:3fab699e78c21ab276b90c363d444c41bceb6182231c4f48cef551e6ef0c9e68",
+  "shlinkio/shlink:stable": "shlinkio/shlink:stable@sha256:5c6bd29e653cd0d5b2b69c5362b8b676140bbd45fb60ebf048871484b0466140",
+  "sickcodes/docker-osx:auto": "sickcodes/docker-osx:auto@sha256:eec23655f0e4200b022fdd7200c951b963abb198c39fbada58c83e710f389298",
+  "zwavejs/zwavejs2mqtt:latest": "zwavejs/zwavejs2mqtt:latest@sha256:e9fa79659dba3e948299a69e0a19cffab0f478d08cad26b78c664558172d5632"
+}

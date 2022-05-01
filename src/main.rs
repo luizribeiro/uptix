@@ -1,10 +1,11 @@
 use dkregistry::v2::Client;
 use glob::{glob_with, MatchOptions};
 use regex::Regex;
-use std::collections::BTreeMap;
-use std::path::PathBuf;
-use std::fs;
 use rnix::{SyntaxKind, SyntaxNode};
+use std::collections::BTreeMap;
+use std::fs;
+use std::io::Write;
+use std::path::PathBuf;
 
 fn discover_nix_files() -> Vec<PathBuf> {
     let mut files = Vec::new();
@@ -102,6 +103,6 @@ async fn main() {
         );
     }
 
-    let output = serde_json::to_string_pretty(&lock).unwrap();
-    println!("{}", output);
+    let mut file = fs::File::create("docknix.lock").unwrap();
+    file.write_all(serde_json::to_string_pretty(&lock).unwrap().as_bytes()).unwrap();
 }
