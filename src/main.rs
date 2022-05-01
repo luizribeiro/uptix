@@ -1,5 +1,5 @@
 use dkregistry::v2::Client;
-use glob::glob;
+use glob::{glob_with, MatchOptions};
 use regex::Regex;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -8,7 +8,12 @@ use rnix::{SyntaxKind, SyntaxNode};
 
 fn discover_nix_files() -> Vec<PathBuf> {
     let mut files = Vec::new();
-    for entry in glob("**/*.nix").unwrap() {
+    let options = MatchOptions {
+        case_sensitive: true,
+        require_literal_separator: false,
+        require_literal_leading_dot: true
+    };
+    for entry in glob_with("**/*.nix", options).unwrap() {
         if let Ok(path) = entry {
             files.push(path);
         }
