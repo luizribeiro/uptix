@@ -1,8 +1,20 @@
 use dkregistry::v2::Client;
+use glob::glob;
 use regex::Regex;
 use rnix::types::*;
 use std::collections::BTreeMap;
+use std::path::PathBuf;
 use std::{env, fs};
+
+fn discover_nix_files() -> Vec<PathBuf> {
+    let mut files = Vec::new();
+    for entry in glob("**/*.nix").unwrap() {
+        if let Ok(path) = entry {
+            files.push(path);
+        }
+    }
+    return files;
+}
 
 fn get_image_components(raw_image: &str) -> (&str, &str, &str) {
     let re = Regex::new(r"(?:([a-z0-9.-]+)/)?([a-z0-9-]+/[a-z0-9-]+):?([a-z0-9.-]+)?").unwrap();
@@ -29,6 +41,8 @@ async fn get_digest<'a>(
 #[tokio::main]
 async fn main() {
     let mut iter = env::args().skip(1).peekable();
+    let files = discover_nix_files();
+    println!("{:?}", files);
     if iter.peek().is_none() {
         eprintln!("Usage: docknix <file>");
         return;
