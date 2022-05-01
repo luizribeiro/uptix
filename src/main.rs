@@ -1,13 +1,10 @@
 use dkregistry::v2::Client;
 use glob::glob;
 use regex::Regex;
-use rnix::types::*;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
-use std::{env, fs};
-use rnix::{NixLanguage, SyntaxKind, SyntaxNode};
-use rnix::types::Str;
-use rnix::value::StrPart;
+use std::fs;
+use rnix::{SyntaxKind, SyntaxNode};
 
 fn discover_nix_files() -> Vec<PathBuf> {
     let mut files = Vec::new();
