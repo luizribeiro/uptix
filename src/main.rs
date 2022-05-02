@@ -1,11 +1,16 @@
+mod docker;
 mod util;
 
-use dkregistry::v2::Client;
-use regex::Regex;
 use rnix::{SyntaxKind, SyntaxNode};
 use std::collections::BTreeMap;
 use std::fs;
 use std::io::Write;
+
+fn extract_docker_images(file_path: &str) -> Vec<String> {
+    let content = fs::read_to_string(file_path).unwrap();
+    let ast = rnix::parse(&content);
+    return visit(ast.node());
+}
 
 fn visit(node: SyntaxNode) -> Vec<String> {
     // lol this is wonky AF
@@ -42,34 +47,6 @@ fn visit(node: SyntaxNode) -> Vec<String> {
     return vec![x];
 }
 
-fn extract_docker_images(file_path: &str) -> Vec<String> {
-    let content = fs::read_to_string(file_path).unwrap();
-    let ast = rnix::parse(&content);
-    return visit(ast.node());
-}
-
-fn get_image_components(raw_image: &str) -> (&str, &str, &str) {
-    let re = Regex::new(r"(?:([a-z0-9.-]+)/)?([a-z0-9-]+/[a-z0-9-]+):?([a-z0-9.-]+)?").unwrap();
-    let caps = re.captures(raw_image).unwrap();
-
-    let registry = caps.get(1).map_or("registry-1.docker.io", |m| m.as_str());
-    let image = caps.get(2).map(|m| m.as_str()).unwrap();
-    let tag = caps.get(3).map_or("latest", |m| m.as_str());
-
-    return (registry, image, tag);
-}
-
-async fn get_digest<'a>(
-    registry: &'a str,
-    image: &'a str,
-    tag: &'a str,
-) -> Option<String> {
-    let client = Client::configure().registry(registry).build().unwrap();
-    let login_scope = format!("repository:{}:pull", image);
-    let dclient = client.authenticate(&[&login_scope]).await.unwrap();
-    return dclient.get_manifestref(image, tag).await.unwrap();
-}
-
 #[tokio::main]
 async fn main() {
     let all_files = util::discover_nix_files();
@@ -88,9 +65,9 @@ async fn main() {
     std::io::stdout().flush().unwrap();
     let mut lock = BTreeMap::new();
     for name in all_docker_images {
-        let (registry, image, tag) = get_image_components(name.as_str());
+        let (registry, image, tag) = docker::get_image_components(name.as_str());
 
-        let digest = get_digest(registry, image, tag).await.unwrap();
+        let digest = docker::get_digest(registry, image, tag).await.unwrap();
         lock.insert(
             name.to_string(),
             format!("{}@{}", name, digest.to_string()),
