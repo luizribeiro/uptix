@@ -2,6 +2,9 @@ mod backend;
 mod docker;
 mod util;
 
+#[macro_use]
+extern crate lazy_static;
+
 use crate::backend::Backend;
 use crate::docker::Docker;
 use rnix::{SyntaxKind, SyntaxNode};

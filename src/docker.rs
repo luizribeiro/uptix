@@ -33,17 +33,28 @@ impl Backend for Docker {
     }
 
     async fn get_lock(&self) -> Option<String> {
-        let client = Client::configure().registry(self.registry.as_str()).build().unwrap();
+        let client = Client::configure()
+            .registry(self.registry.as_str())
+            .build()
+            .unwrap();
         let login_scope = format!("repository:{}:pull", self.image);
         let dclient = client.authenticate(&[&login_scope]).await.unwrap();
-        let digest = dclient.get_manifestref(self.image.as_str(), self.tag.as_str()).await.unwrap().unwrap();
-        return Some(format!("{}@{}", self.name, digest.to_string()));
+        let digest = dclient.get_manifestref(
+            self.image.as_str(),
+            self.tag.as_str(),
+        ).await.unwrap().unwrap();
+        return Some(format!("{}@{}", self.name, digest));
     }
 }
 
+lazy_static! {
+    static ref RE: Regex =
+        Regex::new(r"(?:([a-z0-9.-]+)/)?([a-z0-9-]+/[a-z0-9-]+):?([a-z0-9.-]+)?")
+        .unwrap();
+}
+
 fn get_image_components(raw_image: &str) -> (String, String, String) {
-    let re = Regex::new(r"(?:([a-z0-9.-]+)/)?([a-z0-9-]+/[a-z0-9-]+):?([a-z0-9.-]+)?").unwrap();
-    let caps = re.captures(raw_image).unwrap();
+    let caps = RE.captures(raw_image).unwrap();
 
     let registry = caps.get(1).map_or("registry-1.docker.io", |m| m.as_str());
     let image = caps.get(2).map(|m| m.as_str()).unwrap();
