@@ -72,7 +72,7 @@ names with `docknix.image` on your configurations. For example:
 
 Once that is in place, run `docknix` from the command line and voilà:
 
-```bash
+```
 $ docknix
 Found 2 nix files
 Parsing files... Done.
