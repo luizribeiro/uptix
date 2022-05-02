@@ -63,7 +63,10 @@ async fn main() {
     let mut lock_file = BTreeMap::new();
     for dep in all_docker_images {
         let lock = dep.get_lock().await.unwrap();
-        lock_file.insert(dep.get_lock_key(), lock);
+        lock_file.insert(
+            dep.get_lock_key().to_string(),
+            lock,
+        );
     }
     println!("Done.");
 

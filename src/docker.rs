@@ -28,8 +28,8 @@ impl Docker {
 
 #[async_trait]
 impl Backend for Docker {
-    fn get_lock_key(&self) -> String {
-        return self.name.to_string();
+    fn get_lock_key(&self) -> &str {
+        return &self.name;
     }
 
     async fn get_lock(&self) -> Option<String> {
