@@ -35,6 +35,16 @@
           description = "A tool for pinning Docker dependencies on Nix.";
         };
       };
+
+      devShell = pkgs.mkShell {
+        nativeBuildInputs = with pkgs; [
+          # tools for development
+          rustc
+          cargo
+          rust-analyzer
+          rustfmt
+        ];
+      };
     }
   );
 }
