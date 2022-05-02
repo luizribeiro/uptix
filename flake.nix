@@ -7,14 +7,7 @@
   };
 
   outputs = { self, nixpkgs, utils, ... }: {
-    lib = lockFile:
-      let
-        importJSON = path: builtins.fromJSON (builtins.readFile path);
-      in
-      {
-        image = name: (importJSON lockFile).${name};
-      };
-
+    lib = { lockFile } @ args: import ./lib.nix args;
   } // utils.lib.eachSystem utils.lib.defaultSystems (system:
     let
       pkgs = import nixpkgs { inherit system; };
