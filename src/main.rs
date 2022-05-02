@@ -6,7 +6,6 @@ mod util;
 extern crate lazy_static;
 
 use crate::backend::Backend;
-use crate::docker::Docker;
 use rnix::{SyntaxKind, SyntaxNode};
 use std::collections::BTreeMap;
 use std::fs;
@@ -34,7 +33,8 @@ fn visit(node: SyntaxNode) -> Vec<Box<dyn Backend>> {
         return Vec::new();
     }
 
-    if select.as_ref().unwrap().text() != "docknix.image" {
+    let func = select.as_ref().unwrap().text().to_string();
+    if !func.starts_with("docknix.") {
         return Vec::new();
     }
 
@@ -43,8 +43,11 @@ fn visit(node: SyntaxNode) -> Vec<Box<dyn Backend>> {
         return vec![];
     }
 
-    let dep = Docker::new(&string.unwrap()).unwrap();
-    return vec![Box::new(dep)];
+    let dep = match <dyn Backend>::new(&func, &string.unwrap()) {
+        Ok(d) => d,
+        Err(_) => return vec![],
+    };
+    return vec![dep];
 }
 
 #[tokio::main]
