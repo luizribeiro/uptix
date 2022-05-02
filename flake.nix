@@ -7,29 +7,33 @@
   };
 
   outputs = { self, nixpkgs, utils, ... }: {
-    overlay = lockFile: final: prev:
+    overlay = final: prev:
       let system = final.system; in
       {
         docknix = {
-          docknix = final.rustPlatform.buildRustPackage
-            {
-              pname = "docknix";
-              version = "0.1.0";
-              src = ./.;
-              cargoLock.lockFile = ./Cargo.lock;
-              buildInputs = [ prev.openssl ];
-              preBuild = ''
-                export OPENSSL_DIR=${prev.openssl.dev}
-                export OPENSSL_LIB_DIR=${prev.openssl.out}/lib
-              '';
-              meta = {
-                description = "A tool for pinning Docker dependencies on Nix.";
-              };
-            }
-          // {
-            image = name: (prev.lib.importJSON lockFile).${name};
+          docknix = final.rustPlatform.buildRustPackage {
+            pname = "docknix";
+            version = "0.1.0";
+            src = ./.;
+            cargoLock.lockFile = ./Cargo.lock;
+            buildInputs = [ prev.openssl ];
+            preBuild = ''
+              export OPENSSL_DIR=${prev.openssl.dev}
+              export OPENSSL_LIB_DIR=${prev.openssl.out}/lib
+            '';
+            meta = {
+              description = "A tool for pinning Docker dependencies on Nix.";
+            };
           };
         };
+      };
+
+    lib = lockFile:
+      let
+        importJSON = path: builtins.fromJSON (builtins.readFile path);
+      in
+      {
+        image = name: (importJSON lockFile).${name};
       };
 
   } // utils.lib.eachSystem utils.lib.defaultSystems (system:
