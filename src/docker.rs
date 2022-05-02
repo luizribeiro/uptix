@@ -50,6 +50,19 @@ impl Docker {
 
         return Ok(Docker { name, registry, image, tag });
     }
+
+    async fn get_latest_digest(&self) -> Result<Option<String>, RegistryError> {
+        let client = Client::configure()
+            .registry(self.registry.as_str())
+            .build()?;
+        let login_scope = format!("repository:{}:pull", self.image);
+        let dclient = client.authenticate(&[&login_scope]).await?;
+        let digest = dclient.get_manifestref(
+            self.image.as_str(),
+            self.tag.as_str(),
+        ).await?;
+        return Ok(digest);
+    }
 }
 
 #[async_trait]
@@ -59,25 +72,10 @@ impl Backend for Docker {
     }
 
     async fn get_lock(&self) -> Result<String, &'static str> {
-        return match get_digest_from_registry(&self).await {
+        return match self.get_latest_digest().await {
             Ok(Some(digest)) => Ok(format!("{}@{}", self.name, digest)),
             Ok(None) => Err("Could not find digest for image on registry"),
             Err(_err) => Err("Error while fetching digest from registry"),
         };
     }
-}
-
-async fn get_digest_from_registry(
-    image: &Docker,
-) -> Result<Option<String>, RegistryError> {
-    let client = Client::configure()
-        .registry(image.registry.as_str())
-        .build()?;
-    let login_scope = format!("repository:{}:pull", image.image);
-    let dclient = client.authenticate(&[&login_scope]).await?;
-    let digest = dclient.get_manifestref(
-        image.image.as_str(),
-        image.tag.as_str(),
-    ).await?;
-    return Ok(digest);
 }
