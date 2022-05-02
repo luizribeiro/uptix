@@ -21,7 +21,7 @@ impl Docker {
         name.pop();
         name.remove(0);
 
-        let (registry, image, tag) = get_image_components(name.as_str());
+        let (registry, image, tag) = get_image_components(name.as_str())?;
         return Ok(Docker { name, registry, image, tag });
     }
 }
@@ -53,12 +53,19 @@ lazy_static! {
         .unwrap();
 }
 
-fn get_image_components(raw_image: &str) -> (String, String, String) {
-    let caps = RE.captures(raw_image).unwrap();
-
+fn get_image_components(
+    raw_image: &str,
+) -> Result<(String, String, String), &'static str> {
+    let caps = match RE.captures(raw_image) {
+        Some(c) => c,
+        _ => return Err("Malformatted Docker image"),
+    };
     let registry = caps.get(1).map_or("registry-1.docker.io", |m| m.as_str());
-    let image = caps.get(2).map(|m| m.as_str()).unwrap();
+    let image = match caps.get(2).map(|m| m.as_str()) {
+        Some(i) => i,
+        _ => return Err("Invalid Docker image name"),
+    };
     let tag = caps.get(3).map_or("latest", |m| m.as_str());
 
-    return (registry.to_string(), image.to_string(), tag.to_string());
+    return Ok((registry.to_string(), image.to_string(), tag.to_string()));
 }
