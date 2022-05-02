@@ -11,17 +11,42 @@ pub struct Docker {
     tag: String,
 }
 
+lazy_static! {
+    static ref RE: Regex =
+        Regex::new(r#"((?:([a-z0-9.-]+)/)?([a-z0-9-]+/[a-z0-9-]+):?([a-z0-9.-]+)?)"#)
+        .unwrap();
+}
+
 impl Docker {
     pub fn new(node: &SyntaxNode) -> Result<Docker, &'static str> {
         if node.kind() != SyntaxKind::NODE_STRING {
             return Err("Unexpected node");
         }
 
-        let mut name = node.text().to_string();
-        name.pop();
-        name.remove(0);
+        let text = node.text().to_string();
+        return Docker::from(text.as_str());
+    }
 
-        let (registry, image, tag) = get_image_components(name.as_str())?;
+    fn from(text: &str) -> Result<Docker, &'static str> {
+        let caps = match RE.captures(text) {
+            Some(c) => c,
+            _ => return Err("Malformatted Docker image"),
+        };
+        let name = match caps.get(1).map(|m| m.as_str()) {
+            Some(i) => i.to_string(),
+            _ => return Err("Invalid Docker image name"),
+        };
+        let registry = caps.get(2)
+            .map_or("registry-1.docker.io", |m| m.as_str())
+            .to_string();
+        let image = match caps.get(3).map(|m| m.as_str()) {
+            Some(i) => i.to_string(),
+            _ => return Err("Invalid Docker image"),
+        };
+        let tag = caps.get(4)
+            .map_or("latest", |m| m.as_str())
+            .to_string();
+
         return Ok(Docker { name, registry, image, tag });
     }
 }
@@ -47,25 +72,3 @@ impl Backend for Docker {
     }
 }
 
-lazy_static! {
-    static ref RE: Regex =
-        Regex::new(r"(?:([a-z0-9.-]+)/)?([a-z0-9-]+/[a-z0-9-]+):?([a-z0-9.-]+)?")
-        .unwrap();
-}
-
-fn get_image_components(
-    raw_image: &str,
-) -> Result<(String, String, String), &'static str> {
-    let caps = match RE.captures(raw_image) {
-        Some(c) => c,
-        _ => return Err("Malformatted Docker image"),
-    };
-    let registry = caps.get(1).map_or("registry-1.docker.io", |m| m.as_str());
-    let image = match caps.get(2).map(|m| m.as_str()) {
-        Some(i) => i,
-        _ => return Err("Invalid Docker image name"),
-    };
-    let tag = caps.get(3).map_or("latest", |m| m.as_str());
-
-    return Ok((registry.to_string(), image.to_string(), tag.to_string()));
-}
