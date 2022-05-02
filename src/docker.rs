@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use crate::backend::Backend;
 use dkregistry::v2::Client;
+use dkregistry::errors::Error as RegistryError;
 use regex::Regex;
 use rnix::{SyntaxKind, SyntaxNode};
 
@@ -57,18 +58,26 @@ impl Backend for Docker {
         return &self.name;
     }
 
-    async fn get_lock(&self) -> Option<String> {
-        let client = Client::configure()
-            .registry(self.registry.as_str())
-            .build()
-            .unwrap();
-        let login_scope = format!("repository:{}:pull", self.image);
-        let dclient = client.authenticate(&[&login_scope]).await.unwrap();
-        let digest = dclient.get_manifestref(
-            self.image.as_str(),
-            self.tag.as_str(),
-        ).await.unwrap().unwrap();
-        return Some(format!("{}@{}", self.name, digest));
+    async fn get_lock(&self) -> Result<String, &'static str> {
+        return match get_digest_from_registry(&self).await {
+            Ok(Some(digest)) => Ok(format!("{}@{}", self.name, digest)),
+            Ok(None) => Err("Could not find digest for image on registry"),
+            Err(_err) => Err("Error while fetching digest from registry"),
+        };
     }
 }
 
+async fn get_digest_from_registry(
+    image: &Docker,
+) -> Result<Option<String>, RegistryError> {
+    let client = Client::configure()
+        .registry(image.registry.as_str())
+        .build()?;
+    let login_scope = format!("repository:{}:pull", image.image);
+    let dclient = client.authenticate(&[&login_scope]).await?;
+    let digest = dclient.get_manifestref(
+        image.image.as_str(),
+        image.tag.as_str(),
+    ).await?;
+    return Ok(digest);
+}
