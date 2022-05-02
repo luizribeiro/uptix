@@ -7,7 +7,9 @@
   };
 
   outputs = { self, nixpkgs, utils, ... }: {
-    lib = { lockFile } @ args: import ./lib.nix args;
+    nixosModules.docknix = lockFile: {
+      _module.args.docknix = import ./lib.nix { inherit lockFile; };
+    };
   } // utils.lib.eachSystem utils.lib.defaultSystems (system:
     let
       pkgs = import nixpkgs { inherit system; };
