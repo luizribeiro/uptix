@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+async-trait = "0.1.53"
 dkregistry = "0.5.0"
 regex = "1.5.5"
 rnix = "0.10.1"

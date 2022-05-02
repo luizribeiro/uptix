@@ -1,7 +1,47 @@
-use regex::Regex;
+use async_trait::async_trait;
+use crate::backend::Backend;
 use dkregistry::v2::Client;
+use regex::Regex;
+use rnix::{SyntaxKind, SyntaxNode};
 
-pub fn get_image_components(raw_image: &str) -> (&str, &str, &str) {
+pub struct Docker {
+    name: String,
+    registry: String,
+    image: String,
+    tag: String,
+}
+
+impl Docker {
+    pub fn new(node: &SyntaxNode) -> Result<Docker, &'static str> {
+        if node.kind() != SyntaxKind::NODE_STRING {
+            return Err("Unexpected node");
+        }
+
+        let mut name = node.text().to_string();
+        name.pop();
+        name.remove(0);
+
+        let (registry, image, tag) = get_image_components(name.as_str());
+        return Ok(Docker { name, registry, image, tag });
+    }
+}
+
+#[async_trait]
+impl Backend for Docker {
+    fn get_lock_key(&self) -> String {
+        return self.name.to_string();
+    }
+
+    async fn get_lock(&self) -> Option<String> {
+        let client = Client::configure().registry(self.registry.as_str()).build().unwrap();
+        let login_scope = format!("repository:{}:pull", self.image);
+        let dclient = client.authenticate(&[&login_scope]).await.unwrap();
+        let digest = dclient.get_manifestref(self.image.as_str(), self.tag.as_str()).await.unwrap().unwrap();
+        return Some(format!("{}@{}", self.name, digest.to_string()));
+    }
+}
+
+fn get_image_components(raw_image: &str) -> (String, String, String) {
     let re = Regex::new(r"(?:([a-z0-9.-]+)/)?([a-z0-9-]+/[a-z0-9-]+):?([a-z0-9.-]+)?").unwrap();
     let caps = re.captures(raw_image).unwrap();
 
@@ -9,16 +49,5 @@ pub fn get_image_components(raw_image: &str) -> (&str, &str, &str) {
     let image = caps.get(2).map(|m| m.as_str()).unwrap();
     let tag = caps.get(3).map_or("latest", |m| m.as_str());
 
-    return (registry, image, tag);
-}
-
-pub async fn get_digest<'a>(
-    registry: &'a str,
-    image: &'a str,
-    tag: &'a str,
-) -> Option<String> {
-    let client = Client::configure().registry(registry).build().unwrap();
-    let login_scope = format!("repository:{}:pull", image);
-    let dclient = client.authenticate(&[&login_scope]).await.unwrap();
-    return dclient.get_manifestref(image, tag).await.unwrap();
+    return (registry.to_string(), image.to_string(), tag.to_string());
 }

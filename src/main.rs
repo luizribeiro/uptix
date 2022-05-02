@@ -1,18 +1,21 @@
+mod backend;
 mod docker;
 mod util;
 
+use crate::backend::Backend;
+use crate::docker::Docker;
 use rnix::{SyntaxKind, SyntaxNode};
 use std::collections::BTreeMap;
 use std::fs;
 use std::io::Write;
 
-fn extract_docker_images(file_path: &str) -> Vec<String> {
+fn extract_docker_images(file_path: &str) -> Vec<Box<dyn Backend>> {
     let content = fs::read_to_string(file_path).unwrap();
     let ast = rnix::parse(&content);
     return visit(ast.node());
 }
 
-fn visit(node: SyntaxNode) -> Vec<String> {
+fn visit(node: SyntaxNode) -> Vec<Box<dyn Backend>> {
     // lol this is wonky AF
     if node.kind() != SyntaxKind::NODE_APPLY {
         let mut images = Vec::new();
@@ -36,15 +39,9 @@ fn visit(node: SyntaxNode) -> Vec<String> {
     if string.is_none() {
         return vec![];
     }
-    let s = string.unwrap();
-    if s.kind() != SyntaxKind::NODE_STRING {
-        return vec![];
-    }
 
-    let mut x = s.text().to_string();
-    x.pop();
-    x.remove(0);
-    return vec![x];
+    let dep = Docker::new(&string.unwrap()).unwrap();
+    return vec![Box::new(dep)];
 }
 
 #[tokio::main]
@@ -63,19 +60,14 @@ async fn main() {
 
     print!("Looking for updates... ");
     std::io::stdout().flush().unwrap();
-    let mut lock = BTreeMap::new();
-    for name in all_docker_images {
-        let (registry, image, tag) = docker::get_image_components(name.as_str());
-
-        let digest = docker::get_digest(registry, image, tag).await.unwrap();
-        lock.insert(
-            name.to_string(),
-            format!("{}@{}", name, digest.to_string()),
-        );
+    let mut lock_file = BTreeMap::new();
+    for dep in all_docker_images {
+        let lock = dep.get_lock().await.unwrap();
+        lock_file.insert(dep.get_lock_key(), lock);
     }
     println!("Done.");
 
     let mut file = fs::File::create("docknix.lock").unwrap();
-    file.write_all(serde_json::to_string_pretty(&lock).unwrap().as_bytes()).unwrap();
+    file.write_all(serde_json::to_string_pretty(&lock_file).unwrap().as_bytes()).unwrap();
     println!("Wrote docknix.lock successfully");
 }
