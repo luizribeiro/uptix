@@ -1,32 +1,11 @@
+mod util;
+
 use dkregistry::v2::Client;
 use regex::Regex;
 use rnix::{SyntaxKind, SyntaxNode};
 use std::collections::BTreeMap;
 use std::fs;
 use std::io::Write;
-use std::path::PathBuf;
-use walkdir::{DirEntry, WalkDir};
-
-fn is_not_hidden(entry: &DirEntry) -> bool {
-    entry.file_name()
-         .to_str()
-         .map(|s| entry.depth() == 0 || !s.starts_with("."))
-         .unwrap_or(false)
-}
-
-fn discover_nix_files() -> Vec<PathBuf> {
-    let mut files = Vec::new();
-    let walker = WalkDir::new(".").into_iter();
-    for entry in walker.filter_entry(|e| is_not_hidden(e)) {
-        let e = entry.unwrap();
-        let path = e.path();
-        if path.extension().and_then(|x| x.to_str()) != Some("nix") {
-            continue;
-        }
-        files.push(PathBuf::from(path));
-    }
-    return files;
-}
 
 fn visit(node: SyntaxNode) -> Vec<String> {
     // lol this is wonky AF
@@ -93,7 +72,7 @@ async fn get_digest<'a>(
 
 #[tokio::main]
 async fn main() {
-    let all_files = discover_nix_files();
+    let all_files = util::discover_nix_files();
     println!("Found {} nix files", all_files.len());
 
     print!("Parsing files... ");
