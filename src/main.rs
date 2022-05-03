@@ -1,55 +1,14 @@
-mod common;
+mod deps;
 mod docker;
 mod util;
 
 #[macro_use]
 extern crate lazy_static;
 
-use crate::common::Dependency;
-use rnix::{SyntaxKind, SyntaxNode};
+use crate::deps::collect_file_dependencies;
 use std::collections::BTreeMap;
 use std::fs;
 use std::io::Write;
-
-fn file_dependencies(file_path: &str) -> Vec<Box<dyn Dependency>> {
-    let content = fs::read_to_string(file_path).unwrap();
-    let ast = rnix::parse(&content);
-    return collect_dependencies(ast.node());
-}
-
-fn collect_dependencies(node: SyntaxNode) -> Vec<Box<dyn Dependency>> {
-    if node.kind() != SyntaxKind::NODE_APPLY {
-        return node.children()
-            .map(|c| collect_dependencies(c))
-            .flatten()
-            .collect();
-    }
-
-    let mut children = node.children();
-    let select_node = match children.next() {
-        Some(n) => match n.kind() {
-            SyntaxKind::NODE_SELECT => n,
-            _ => return vec![],
-        },
-        _ => return vec![],
-    };
-
-    let func = select_node.text().to_string();
-    if !func.starts_with("docknix.") {
-        return vec![];
-    }
-
-    let value_node = match children.next() {
-        Some(n) => n,
-        None => return vec![],
-    };
-
-    let dependency = match <dyn Dependency>::new(&func, &value_node) {
-        Ok(d) => d,
-        Err(_) => return vec![],
-    };
-    return vec![dependency];
-}
 
 #[tokio::main]
 async fn main() {
@@ -60,7 +19,7 @@ async fn main() {
     std::io::stdout().flush().unwrap();
     let all_dependencies: Vec<_> = all_files
         .iter()
-        .map(|f| file_dependencies(f.to_str().unwrap()))
+        .map(|f| collect_file_dependencies(f.to_str().unwrap()))
         .flatten()
         .collect();
     println!("Done.");

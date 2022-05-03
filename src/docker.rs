@@ -1,7 +1,7 @@
 use async_trait::async_trait;
-use crate::common::Dependency;
-use dkregistry::v2::Client;
+use crate::deps::Dependency;
 use dkregistry::errors::Error as RegistryError;
+use dkregistry::v2::Client;
 use regex::Regex;
 use rnix::{SyntaxKind, SyntaxNode};
 
