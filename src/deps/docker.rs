@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use crate::deps::Dependency;
+use crate::deps::Lockable;
 use dkregistry::errors::Error as RegistryError;
 use dkregistry::v2::Client;
 use erased_serde::Serialize;
@@ -62,7 +62,7 @@ impl Docker {
 }
 
 #[async_trait]
-impl Dependency for Docker {
+impl Lockable for Docker {
     fn key(&self) -> &str {
         return &self.name;
     }
