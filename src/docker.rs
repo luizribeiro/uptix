@@ -68,7 +68,7 @@ impl Dependency for Docker {
 
     async fn lock(&self) -> Result<String, &'static str> {
         return match self.latest_digest().await {
-            Ok(Some(digest)) => Ok(format!("{}@{}", self.name, digest)),
+            Ok(Some(digest)) => Ok(digest),
             Ok(None) => Err("Could not find digest for image on registry"),
             Err(_err) => Err("Error while fetching digest from registry"),
         };
