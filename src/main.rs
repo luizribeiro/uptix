@@ -23,7 +23,7 @@ async fn main() -> Result<(), &'static str> {
         .flatten()
         .collect();
     println!("Done.");
-    println!("Found {} docker image references", all_dependencies.len());
+    println!("Found {} docknix dependencies", all_dependencies.len());
 
     print!("Looking for updates... ");
     std::io::stdout().flush().unwrap();
