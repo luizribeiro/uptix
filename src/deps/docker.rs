@@ -55,11 +55,12 @@ impl Docker {
     }
 
     async fn latest_digest(&self) -> Result<Option<String>, RegistryError> {
-        let client = Client::configure()
-            .registry(self.registry.as_str())
-            .build()?;
         let login_scope = format!("repository:{}:pull", self.image);
-        let dclient = client.authenticate(&[&login_scope]).await?;
+        let scopes = vec![login_scope.as_str()];
+        let dclient = Client::configure()
+            .registry(self.registry.as_str())
+            .build()?
+            .authenticate(scopes.as_slice()).await?;
         let digest = dclient
             .get_manifestref(self.image.as_str(), self.tag.as_str())
             .await?;
