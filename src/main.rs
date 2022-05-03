@@ -1,23 +1,23 @@
-mod backend;
+mod common;
 mod docker;
 mod util;
 
 #[macro_use]
 extern crate lazy_static;
 
-use crate::backend::Backend;
+use crate::common::Dependency;
 use rnix::{SyntaxKind, SyntaxNode};
 use std::collections::BTreeMap;
 use std::fs;
 use std::io::Write;
 
-fn extract_docker_images(file_path: &str) -> Vec<Box<dyn Backend>> {
+fn file_dependencies(file_path: &str) -> Vec<Box<dyn Dependency>> {
     let content = fs::read_to_string(file_path).unwrap();
     let ast = rnix::parse(&content);
     return collect_dependencies(ast.node());
 }
 
-fn collect_dependencies(node: SyntaxNode) -> Vec<Box<dyn Backend>> {
+fn collect_dependencies(node: SyntaxNode) -> Vec<Box<dyn Dependency>> {
     if node.kind() != SyntaxKind::NODE_APPLY {
         let mut dependencies = Vec::new();
         for child in node.children() {
@@ -45,7 +45,7 @@ fn collect_dependencies(node: SyntaxNode) -> Vec<Box<dyn Backend>> {
         None => return vec![],
     };
 
-    let dependency = match <dyn Backend>::new(&func, &value_node) {
+    let dependency = match <dyn Dependency>::new(&func, &value_node) {
         Ok(d) => d,
         Err(_) => return vec![],
     };
@@ -59,20 +59,20 @@ async fn main() {
 
     print!("Parsing files... ");
     std::io::stdout().flush().unwrap();
-    let mut all_docker_images = vec![];
+    let mut all_dependencies = vec![];
     for file in all_files {
-        all_docker_images.append(&mut extract_docker_images(file.to_str().unwrap()));
+        all_dependencies.append(&mut file_dependencies(file.to_str().unwrap()));
     }
     println!("Done.");
-    println!("Found {} docker image references", all_docker_images.len());
+    println!("Found {} docker image references", all_dependencies.len());
 
     print!("Looking for updates... ");
     std::io::stdout().flush().unwrap();
     let mut lock_file = BTreeMap::new();
-    for dep in all_docker_images {
-        let lock = dep.get_lock().await.unwrap();
+    for dependency in all_dependencies {
+        let lock = dependency.lock().await.unwrap();
         lock_file.insert(
-            dep.get_lock_key().to_string(),
+            dependency.key().to_string(),
             lock,
         );
     }

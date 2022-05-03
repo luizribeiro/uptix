@@ -3,16 +3,16 @@ use crate::docker::Docker;
 use rnix::SyntaxNode;
 
 #[async_trait]
-pub trait Backend {
-    fn get_lock_key(&self) -> &str;
-    async fn get_lock(&self) -> Result<String, &'static str>;
+pub trait Dependency {
+    fn key(&self) -> &str;
+    async fn lock(&self) -> Result<String, &'static str>;
 }
 
-impl dyn Backend {
+impl dyn Dependency {
     pub fn new(
         func: &str,
         node: &SyntaxNode,
-    ) -> Result<Box<dyn Backend>, &'static str> {
+    ) -> Result<Box<dyn Dependency>, &'static str> {
         let dep = match func {
             "docknix.image" => Docker::new(&node)?,
             _ => return Err("Unknown docknix function"),

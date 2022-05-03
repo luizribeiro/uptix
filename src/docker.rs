@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use crate::backend::Backend;
+use crate::common::Dependency;
 use dkregistry::v2::Client;
 use dkregistry::errors::Error as RegistryError;
 use regex::Regex;
@@ -51,7 +51,7 @@ impl Docker {
         return Ok(Docker { name, registry, image, tag });
     }
 
-    async fn get_latest_digest(&self) -> Result<Option<String>, RegistryError> {
+    async fn latest_digest(&self) -> Result<Option<String>, RegistryError> {
         let client = Client::configure()
             .registry(self.registry.as_str())
             .build()?;
@@ -66,13 +66,13 @@ impl Docker {
 }
 
 #[async_trait]
-impl Backend for Docker {
-    fn get_lock_key(&self) -> &str {
+impl Dependency for Docker {
+    fn key(&self) -> &str {
         return &self.name;
     }
 
-    async fn get_lock(&self) -> Result<String, &'static str> {
-        return match self.get_latest_digest().await {
+    async fn lock(&self) -> Result<String, &'static str> {
+        return match self.latest_digest().await {
             Ok(Some(digest)) => Ok(format!("{}@{}", self.name, digest)),
             Ok(None) => Err("Could not find digest for image on registry"),
             Err(_err) => Err("Error while fetching digest from registry"),
