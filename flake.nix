@@ -8,7 +8,7 @@
 
   outputs = { self, nixpkgs, utils, ... }: {
     nixosModules.uptix = lockFile: {
-      _module.args.uptix = import ./lib.nix { inherit lockFile; };
+      _module.args.uptix = import ./modules { inherit lockFile; };
     };
   } // utils.lib.eachSystem utils.lib.defaultSystems (system:
     let
