@@ -11,7 +11,7 @@ use std::fs;
 use std::io::Write;
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), &'static str> {
     let all_files = util::discover_nix_files();
     println!("Found {} nix files", all_files.len());
 
@@ -29,7 +29,15 @@ async fn main() {
     std::io::stdout().flush().unwrap();
     let mut lock_file = BTreeMap::new();
     for dependency in all_dependencies {
-        let lock = dependency.lock().await.unwrap();
+        let lock = dependency.lock().await;
+        if let Err(err) = lock {
+            eprintln!(
+                "Ignoring {}. Error while locking: {}",
+                dependency.key().to_string(),
+                err,
+            );
+            continue;
+        }
         lock_file.insert(
             dependency.key().to_string(),
             lock,
@@ -37,7 +45,12 @@ async fn main() {
     }
     println!("Done.");
 
-    let mut file = fs::File::create("docknix.lock").unwrap();
-    file.write_all(serde_json::to_string_pretty(&lock_file).unwrap().as_bytes()).unwrap();
+    let mut file = fs::File::create("docknix.lock")
+        .expect("Error creating docknix.lock");
+    let json = serde_json::to_string_pretty(&lock_file).unwrap();
+    file.write_all(json.as_bytes())
+        .expect("Error writing JSON to docknix.lock");
     println!("Wrote docknix.lock successfully");
+
+    return Ok(());
 }
