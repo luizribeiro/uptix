@@ -75,3 +75,29 @@ impl Lockable for Docker {
         };
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::deps::collect_ast_dependencies;
+    use crate::deps::Dependency::Docker;
+
+    #[test]
+    fn it_parses() {
+        let ast = rnix::parse("{
+            hass = uptix.dockerImage \"homeassistant/home-assistant:stable\";
+            customRepo = uptix.dockerImage \"foo.io/baz/bar:latest\";
+        }");
+        let dependencies = collect_ast_dependencies(ast.node());
+        assert_eq!(dependencies.len(), 2);
+        let Docker(dependency) = dependencies.get(0).unwrap();
+        assert_eq!(dependency.name, "homeassistant/home-assistant:stable");
+        assert_eq!(dependency.registry, "registry-1.docker.io");
+        assert_eq!(dependency.image, "homeassistant/home-assistant");
+        assert_eq!(dependency.tag, "stable");
+        let Docker(dependency) = dependencies.get(1).unwrap();
+        assert_eq!(dependency.name, "foo.io/baz/bar:latest");
+        assert_eq!(dependency.registry, "foo.io");
+        assert_eq!(dependency.image, "baz/bar");
+        assert_eq!(dependency.tag, "latest");
+    }
+}
