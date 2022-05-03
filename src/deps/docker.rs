@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use crate::deps::Dependency;
 use dkregistry::errors::Error as RegistryError;
 use dkregistry::v2::Client;
+use erased_serde::Serialize;
 use regex::Regex;
 use rnix::{SyntaxKind, SyntaxNode};
 
@@ -66,9 +67,9 @@ impl Dependency for Docker {
         return &self.name;
     }
 
-    async fn lock(&self) -> Result<String, &'static str> {
+    async fn lock(&self) -> Result<Box<dyn Serialize>, &'static str> {
         return match self.latest_digest().await {
-            Ok(Some(digest)) => Ok(digest),
+            Ok(Some(digest)) => Ok(Box::new(digest)),
             Ok(None) => Err("Could not find digest for image on registry"),
             Err(_err) => Err("Error while fetching digest from registry"),
         };

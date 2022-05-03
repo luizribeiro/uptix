@@ -207,6 +207,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "erased-serde"
+version = "0.3.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ad132dd8d0d0b546348d7d86cb3191aad14b34e5f979781fc005c80d4ac67ffd"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "fastrand"
 version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1383,6 +1392,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "dkregistry",
+ "erased-serde",
  "lazy_static",
  "regex",
  "rnix",

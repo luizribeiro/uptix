@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 async-trait = "0.1.53"
 dkregistry = "0.5.0"
+erased-serde = "0.3.20"
 lazy_static = "1.4.0"
 regex = "1.5.5"
 rnix = "0.10.1"

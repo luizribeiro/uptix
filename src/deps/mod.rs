@@ -2,13 +2,14 @@ mod docker;
 
 use async_trait::async_trait;
 use crate::deps::docker::Docker;
+use erased_serde::Serialize;
 use rnix::{SyntaxKind, SyntaxNode};
 use std::fs;
 
 #[async_trait]
 pub trait Dependency {
     fn key(&self) -> &str;
-    async fn lock(&self) -> Result<String, &'static str>;
+    async fn lock(&self) -> Result<Box<dyn Serialize>, &'static str>;
 }
 
 impl dyn Dependency {
