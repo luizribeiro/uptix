@@ -15,7 +15,7 @@ impl dyn Dependency {
         node: &SyntaxNode,
     ) -> Result<Box<dyn Dependency>, &'static str> {
         let dep = match func {
-            "docknix.image" => Docker::new(&node)?,
+            "docknix.dockerImage" => Docker::new(&node)?,
             _ => return Err("Unknown docknix function"),
         };
         return Ok(Box::new(dep));

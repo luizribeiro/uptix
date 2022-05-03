@@ -53,7 +53,7 @@ $ nix run "github:luizribeiro/docknix"
 ## Usage
 
 Once you have `docknix` setup, all you have to do is prefix your Docker image
-names with `docknix.image` on your configurations. For example:
+names with `docknix.dockerImage` on your configurations. For example:
 
 ```nix
 # note that docknix is now available as an argument on your configuration.
@@ -63,7 +63,7 @@ names with `docknix.image` on your configurations. For example:
   virtualisation.oci-containers.containers = {
     homeassistant = {
       # this is all you need
-      image = docknix.image "ghcr.io/home-assistant/home-assistant:stable";
+      image = docknix.dockerImage "ghcr.io/home-assistant/home-assistant:stable";
       # ...
     };
   };
