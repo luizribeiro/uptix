@@ -29,15 +29,7 @@ async fn main() -> Result<(), &'static str> {
     std::io::stdout().flush().unwrap();
     let mut lock_file = BTreeMap::new();
     for dependency in all_dependencies {
-        let lock = dependency.lock().await;
-        if let Err(err) = lock {
-            eprintln!(
-                "Ignoring {}. Error while locking: {}",
-                dependency.key().to_string(),
-                err,
-            );
-            continue;
-        }
+        let lock = dependency.lock().await?;
         lock_file.insert(
             dependency.key().to_string(),
             lock,
