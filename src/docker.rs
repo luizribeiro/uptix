@@ -29,21 +29,16 @@ impl Docker {
     }
 
     fn from(text: &str) -> Result<Docker, &'static str> {
-        let caps = match RE.captures(text) {
-            Some(c) => c,
-            _ => return Err("Malformatted Docker image"),
-        };
-        let name = match caps.get(1).map(|m| m.as_str()) {
-            Some(i) => i.to_string(),
-            _ => return Err("Invalid Docker image name"),
-        };
+        let caps = RE.captures(text).expect("Malformatted Docker image");
+        let name = caps.get(1).map(|m| m.as_str())
+            .expect("Invalid Docker image name")
+            .to_string();
         let registry = caps.get(2)
             .map_or("registry-1.docker.io", |m| m.as_str())
             .to_string();
-        let image = match caps.get(3).map(|m| m.as_str()) {
-            Some(i) => i.to_string(),
-            _ => return Err("Invalid Docker image"),
-        };
+        let image = caps.get(3).map(|m| m.as_str())
+            .expect("Invalid Docker image")
+            .to_string();
         let tag = caps.get(4)
             .map_or("latest", |m| m.as_str())
             .to_string();
