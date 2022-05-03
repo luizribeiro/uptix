@@ -1,5 +1,7 @@
 # uptix
 
+[![CI](https://github.com/luizribeiro/uptix/actions/workflows/ci.yml/badge.svg)](https://github.com/luizribeiro/uptix/actions/workflows/ci.yml)
+
 A tool for pinning (and updating) external dependencies on NixOS configurations.
 
 For now, only Docker images are supported.
