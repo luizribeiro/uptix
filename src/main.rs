@@ -19,11 +19,10 @@ fn file_dependencies(file_path: &str) -> Vec<Box<dyn Dependency>> {
 
 fn collect_dependencies(node: SyntaxNode) -> Vec<Box<dyn Dependency>> {
     if node.kind() != SyntaxKind::NODE_APPLY {
-        let mut dependencies = Vec::new();
-        for child in node.children() {
-            dependencies.append(&mut collect_dependencies(child));
-        }
-        return dependencies;
+        return node.children()
+            .map(|c| collect_dependencies(c))
+            .flatten()
+            .collect();
     }
 
     let mut children = node.children();
@@ -59,10 +58,11 @@ async fn main() {
 
     print!("Parsing files... ");
     std::io::stdout().flush().unwrap();
-    let mut all_dependencies = vec![];
-    for file in all_files {
-        all_dependencies.append(&mut file_dependencies(file.to_str().unwrap()));
-    }
+    let all_dependencies: Vec<_> = all_files
+        .iter()
+        .map(|f| file_dependencies(f.to_str().unwrap()))
+        .flatten()
+        .collect();
     println!("Done.");
     println!("Found {} docker image references", all_dependencies.len());
 
