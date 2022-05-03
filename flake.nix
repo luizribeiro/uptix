@@ -33,6 +33,7 @@
       };
 
       devShell = pkgs.mkShell {
+        buildInputs = [ pkgs.openssl ];
         nativeBuildInputs = with pkgs; [
           # tools for development
           rustc
