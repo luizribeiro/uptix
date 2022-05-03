@@ -1,5 +1,5 @@
-use async_trait::async_trait;
 use crate::deps::Lockable;
+use async_trait::async_trait;
 use dkregistry::errors::Error as RegistryError;
 use dkregistry::v2::Client;
 use erased_serde::Serialize;
@@ -15,8 +15,7 @@ pub struct Docker {
 
 lazy_static! {
     static ref RE: Regex =
-        Regex::new(r#"((?:([a-z0-9.-]+)/)?([a-z0-9-]+/[a-z0-9-]+):?([a-z0-9.-]+)?)"#)
-        .unwrap();
+        Regex::new(r#"((?:([a-z0-9.-]+)/)?([a-z0-9-]+/[a-z0-9-]+):?([a-z0-9.-]+)?)"#).unwrap();
 }
 
 impl Docker {
@@ -31,20 +30,28 @@ impl Docker {
 
     fn from(text: &str) -> Result<Docker, &'static str> {
         let caps = RE.captures(text).expect("Malformatted Docker image");
-        let name = caps.get(1).map(|m| m.as_str())
+        let name = caps
+            .get(1)
+            .map(|m| m.as_str())
             .expect("Invalid Docker image name")
             .to_string();
-        let registry = caps.get(2)
+        let registry = caps
+            .get(2)
             .map_or("registry-1.docker.io", |m| m.as_str())
             .to_string();
-        let image = caps.get(3).map(|m| m.as_str())
+        let image = caps
+            .get(3)
+            .map(|m| m.as_str())
             .expect("Invalid Docker image")
             .to_string();
-        let tag = caps.get(4)
-            .map_or("latest", |m| m.as_str())
-            .to_string();
+        let tag = caps.get(4).map_or("latest", |m| m.as_str()).to_string();
 
-        return Ok(Docker { name, registry, image, tag });
+        return Ok(Docker {
+            name,
+            registry,
+            image,
+            tag,
+        });
     }
 
     async fn latest_digest(&self) -> Result<Option<String>, RegistryError> {
@@ -53,10 +60,9 @@ impl Docker {
             .build()?;
         let login_scope = format!("repository:{}:pull", self.image);
         let dclient = client.authenticate(&[&login_scope]).await?;
-        let digest = dclient.get_manifestref(
-            self.image.as_str(),
-            self.tag.as_str(),
-        ).await?;
+        let digest = dclient
+            .get_manifestref(self.image.as_str(), self.tag.as_str())
+            .await?;
         return Ok(digest);
     }
 }
@@ -78,16 +84,18 @@ impl Lockable for Docker {
 
 #[cfg(test)]
 mod tests {
+    use crate::deps::collect_ast_dependencies;
     use crate::deps::Dependency::Docker;
     use crate::deps::Lockable;
-    use crate::deps::collect_ast_dependencies;
 
     #[test]
     fn it_parses() {
-        let ast = rnix::parse("{
+        let ast = rnix::parse(
+            "{
             hass = uptix.dockerImage \"homeassistant/home-assistant:stable\";
             customRepo = uptix.dockerImage \"foo.io/baz/bar:latest\";
-        }");
+        }",
+        );
         let dependencies = collect_ast_dependencies(ast.node());
         assert_eq!(dependencies.len(), 2);
         let Docker(dependency) = dependencies.get(0).unwrap();

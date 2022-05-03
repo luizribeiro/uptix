@@ -1,7 +1,7 @@
 mod docker;
 
-use async_trait::async_trait;
 use crate::deps::docker::Docker;
+use async_trait::async_trait;
 use erased_serde::Serialize;
 use rnix::{SyntaxKind, SyntaxNode};
 use std::fs;
@@ -17,10 +17,7 @@ pub trait Lockable {
 }
 
 impl Dependency {
-    pub fn new(
-        func: &str,
-        node: &SyntaxNode,
-    ) -> Result<Dependency, &'static str> {
+    pub fn new(func: &str, node: &SyntaxNode) -> Result<Dependency, &'static str> {
         let dep = match func {
             "uptix.dockerImage" => Dependency::Docker(Docker::new(&node)?),
             _ => return Err("Unknown uptix function"),
@@ -49,7 +46,8 @@ pub fn collect_file_dependencies(file_path: &str) -> Vec<Dependency> {
 
 fn collect_ast_dependencies(node: SyntaxNode) -> Vec<Dependency> {
     if node.kind() != SyntaxKind::NODE_APPLY {
-        return node.children()
+        return node
+            .children()
             .map(|c| collect_ast_dependencies(c))
             .flatten()
             .collect();
