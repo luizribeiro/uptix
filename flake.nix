@@ -13,6 +13,10 @@
   } // utils.lib.eachSystem utils.lib.defaultSystems (system:
     let
       pkgs = import nixpkgs { inherit system; };
+      exports = ''
+        export OPENSSL_DIR="${pkgs.openssl.dev}"
+        export OPENSSL_LIB_DIR="${pkgs.openssl.out}/lib"
+      '';
     in
     {
       defaultPackage = self.packages."${system}".docknix;
@@ -22,10 +26,7 @@
         src = ./.;
         cargoLock.lockFile = ./Cargo.lock;
         buildInputs = [ pkgs.openssl ];
-        preBuild = ''
-          export OPENSSL_DIR=${pkgs.openssl.dev}
-          export OPENSSL_LIB_DIR=${pkgs.openssl.out}/lib
-        '';
+        preBuild = exports;
         meta = {
           description = "A tool for pinning Docker dependencies on Nix.";
         };
@@ -39,6 +40,7 @@
           rust-analyzer
           rustfmt
         ];
+        shellHook = exports;
       };
     }
   );
