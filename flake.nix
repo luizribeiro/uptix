@@ -1,5 +1,5 @@
 {
-  description = "A tool for pinning Docker dependencies on Nix.";
+  description = "A tool for pinning external dependencies on Nix.";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
@@ -7,8 +7,8 @@
   };
 
   outputs = { self, nixpkgs, utils, ... }: {
-    nixosModules.docknix = lockFile: {
-      _module.args.docknix = import ./lib.nix { inherit lockFile; };
+    nixosModules.uptix = lockFile: {
+      _module.args.uptix = import ./lib.nix { inherit lockFile; };
     };
   } // utils.lib.eachSystem utils.lib.defaultSystems (system:
     let
@@ -19,16 +19,16 @@
       '';
     in
     {
-      defaultPackage = self.packages."${system}".docknix;
-      packages.docknix = pkgs.rustPlatform.buildRustPackage {
-        pname = "docknix";
+      defaultPackage = self.packages."${system}".uptix;
+      packages.uptix = pkgs.rustPlatform.buildRustPackage {
+        pname = "uptix";
         version = "0.1.0";
         src = ./.;
         cargoLock.lockFile = ./Cargo.lock;
         buildInputs = [ pkgs.openssl ];
         preBuild = exports;
         meta = {
-          description = "A tool for pinning Docker dependencies on Nix.";
+          description = "A tool for pinning external dependencies on Nix.";
         };
       };
 

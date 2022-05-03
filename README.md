@@ -1,25 +1,27 @@
-# docknix
+# uptix
 
-A tool for pinning (and updating) Docker images on NixOS configurations.
+A tool for pinning (and updating) external dependencies on NixOS configurations.
+
+For now, only Docker images are supported.
 
 ## Setup
 
 On your `flake.nix`, just add this repository as an input and add the
-`docknix.nixosModules.docknix` module to your configurations:
+`uptix.nixosModules.uptix` module to your configurations:
 
 ```nix
 {
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/master";
-  inputs.docknix.url = "github:luizribeiro/docknix";
+  inputs.uptix.url = "github:luizribeiro/uptix";
   
-  outputs = { nixpkgs, docknix, ... }: {
+  outputs = { nixpkgs, uptix, ... }: {
     nixosConfigurations.somehost = nixpkgs.lib.nixosSystem {
       system = "x86_64-linux";
       modules = [
         # add this line to your configurations with the path where you will
-        # want the docknix.lock file to be (a lot of times it will be in
+        # want the uptix.lock file to be (a lot of times it will be in
         # the root of your project):
-        (docknix.nixosModules.docknix ./docknix.lock)
+        (uptix.nixosModules.uptix ./uptix.lock)
         # ... your other modules go here as usual ...
       ];
     };
@@ -30,64 +32,64 @@ On your `flake.nix`, just add this repository as an input and add the
 Once that is done, you should be able to use it from your configurations.
 
 If you have a shell setup on your flake, you will probably also want to
-install `docknix` onto your `flake.nix`'s `devShell`:
+install `uptix` onto your `flake.nix`'s `devShell`:
 
 ```nix
 {
   # ...
   devShell = pkgs.mkShell {
     buildInputs = [
-      docknix.defaultPackage."${system}"
+      uptix.defaultPackage."${system}"
     ];
   };
   # ...
 }
 ```
 
-Alternatively, you can also just run `docknix` with:
+Alternatively, you can also just run `uptix` with:
 
 ```bash
-$ nix run "github:luizribeiro/docknix"
+$ nix run "github:luizribeiro/uptix"
 ```
 
 ## Usage
 
-Once you have `docknix` setup, all you have to do is prefix your Docker image
-names with `docknix.dockerImage` on your configurations. For example:
+Once you have `uptix` setup, all you have to do is prefix your Docker image
+names with `uptix.dockerImage` on your configurations. For example:
 
 ```nix
-# note that docknix is now available as an argument on your configuration.
-{ pkgs, docknix, ... }:
+# note that uptix is now available as an argument on your configuration.
+{ pkgs, uptix, ... }:
 
 {
   virtualisation.oci-containers.containers = {
     homeassistant = {
       # this is all you need
-      image = docknix.dockerImage "homeassistant/home-assistant:stable";
+      image = uptix.dockerImage "homeassistant/home-assistant:stable";
       # ...
     };
   };
 }
 ```
 
-Once that is in place, run `docknix` from the command line and voilà:
+Once that is in place, run `uptix` from the command line and voilà:
 
 ```
-$ docknix
+$ uptix
 Found 2 nix files
 Parsing files... Done.
-Found 1 docker image references
+Found 1 uptix dependencies
 Looking for updates... Done.
-Wrote docknix.lock successfully
+Wrote uptix.lock successfully
 ```
 
-Make sure to check the `docknix.lock` file into your source control
+Make sure to check the `uptix.lock` file into your source control
 repository. This is the file that keeps track of which version of the
 Docker image you are currently using.
 
-Every time you run the `docknix` binary, it will find all of your
-`docker.image` references and update the `docknix.lock` with the SHA256
+Every time you run the `uptix` binary, it will find all of your
+`uptix.dockerImage` references and update the `uptix.lock` with the SHA256
 digest for the latest version.
 
 If you want to update your Docker images to their latest versions, simply
-run `docknix` again.
+run `uptix` again.

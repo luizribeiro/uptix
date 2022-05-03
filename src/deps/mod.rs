@@ -17,8 +17,8 @@ impl dyn Dependency {
         node: &SyntaxNode,
     ) -> Result<Box<dyn Dependency>, &'static str> {
         let dep = match func {
-            "docknix.dockerImage" => Docker::new(&node)?,
-            _ => return Err("Unknown docknix function"),
+            "uptix.dockerImage" => Docker::new(&node)?,
+            _ => return Err("Unknown uptix function"),
         };
         return Ok(Box::new(dep));
     }
@@ -48,7 +48,7 @@ fn collect_ast_dependencies(node: SyntaxNode) -> Vec<Box<dyn Dependency>> {
     };
 
     let func = select_node.text().to_string();
-    if !func.starts_with("docknix.") {
+    if !func.starts_with("uptix.") {
         return vec![];
     }
 

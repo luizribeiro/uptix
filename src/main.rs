@@ -22,7 +22,7 @@ async fn main() -> Result<(), &'static str> {
         .flatten()
         .collect();
     println!("Done.");
-    println!("Found {} docknix dependencies", all_dependencies.len());
+    println!("Found {} uptix dependencies", all_dependencies.len());
 
     print!("Looking for updates... ");
     std::io::stdout().flush().unwrap();
@@ -36,12 +36,12 @@ async fn main() -> Result<(), &'static str> {
     }
     println!("Done.");
 
-    let mut file = fs::File::create("docknix.lock")
-        .expect("Error creating docknix.lock");
+    let mut file = fs::File::create("uptix.lock")
+        .expect("Error creating uptix.lock");
     let json = serde_json::to_string_pretty(&lock_file).unwrap();
     file.write_all(json.as_bytes())
-        .expect("Error writing JSON to docknix.lock");
-    println!("Wrote docknix.lock successfully");
+        .expect("Error writing JSON to uptix.lock");
+    println!("Wrote uptix.lock successfully");
 
     return Ok(());
 }
