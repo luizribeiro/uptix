@@ -63,7 +63,7 @@ names with `docknix.dockerImage` on your configurations. For example:
   virtualisation.oci-containers.containers = {
     homeassistant = {
       # this is all you need
-      image = docknix.dockerImage "ghcr.io/home-assistant/home-assistant:stable";
+      image = docknix.dockerImage "homeassistant/home-assistant:stable";
       # ...
     };
   };
