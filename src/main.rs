@@ -12,7 +12,7 @@ use std::io::Write;
 
 #[tokio::main]
 async fn main() -> Result<(), &'static str> {
-    let all_files = util::discover_nix_files();
+    let all_files = util::discover_nix_files(".");
     println!("Found {} nix files", all_files.len());
 
     print!("Parsing files... ");
