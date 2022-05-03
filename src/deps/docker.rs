@@ -81,7 +81,6 @@ mod tests {
     use crate::deps::Dependency::Docker;
     use crate::deps::Lockable;
     use crate::deps::collect_ast_dependencies;
-    use serde_json::json;
 
     #[test]
     fn it_parses() {
@@ -92,6 +91,10 @@ mod tests {
         let dependencies = collect_ast_dependencies(ast.node());
         assert_eq!(dependencies.len(), 2);
         let Docker(dependency) = dependencies.get(0).unwrap();
+        assert_eq!(dependency.name, "homeassistant/home-assistant:stable");
+        assert_eq!(dependency.registry, "registry-1.docker.io");
+        assert_eq!(dependency.image, "homeassistant/home-assistant");
+        assert_eq!(dependency.tag, "stable");
         let Docker(dependency) = dependencies.get(1).unwrap();
         assert_eq!(dependency.name, "foo.io/baz/bar:latest");
         assert_eq!(dependency.registry, "foo.io");
