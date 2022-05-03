@@ -14,40 +14,42 @@ use std::io::Write;
 fn extract_docker_images(file_path: &str) -> Vec<Box<dyn Backend>> {
     let content = fs::read_to_string(file_path).unwrap();
     let ast = rnix::parse(&content);
-    return visit(ast.node());
+    return collect_dependencies(ast.node());
 }
 
-fn visit(node: SyntaxNode) -> Vec<Box<dyn Backend>> {
-    // lol this is wonky AF
+fn collect_dependencies(node: SyntaxNode) -> Vec<Box<dyn Backend>> {
     if node.kind() != SyntaxKind::NODE_APPLY {
-        let mut images = Vec::new();
+        let mut dependencies = Vec::new();
         for child in node.children() {
-            images.append(&mut visit(child));
+            dependencies.append(&mut collect_dependencies(child));
         }
-        return images;
+        return dependencies;
     }
 
     let mut children = node.children();
-    let select = children.next();
-    if select.is_none() || select.as_ref().unwrap().kind() != SyntaxKind::NODE_SELECT {
-        return Vec::new();
-    }
+    let select_node = match children.next() {
+        Some(n) => match n.kind() {
+            SyntaxKind::NODE_SELECT => n,
+            _ => return vec![],
+        },
+        _ => return vec![],
+    };
 
-    let func = select.as_ref().unwrap().text().to_string();
+    let func = select_node.text().to_string();
     if !func.starts_with("docknix.") {
-        return Vec::new();
-    }
-
-    let string = children.next();
-    if string.is_none() {
         return vec![];
     }
 
-    let dep = match <dyn Backend>::new(&func, &string.unwrap()) {
+    let value_node = match children.next() {
+        Some(n) => n,
+        None => return vec![],
+    };
+
+    let dependency = match <dyn Backend>::new(&func, &value_node) {
         Ok(d) => d,
         Err(_) => return vec![],
     };
-    return vec![dep];
+    return vec![dependency];
 }
 
 #[tokio::main]
