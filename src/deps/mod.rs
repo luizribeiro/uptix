@@ -1,5 +1,7 @@
+mod docker;
+
 use async_trait::async_trait;
-use crate::docker::Docker;
+use crate::deps::docker::Docker;
 use rnix::{SyntaxKind, SyntaxNode};
 use std::fs;
 

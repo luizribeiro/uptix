@@ -1,5 +1,4 @@
 mod deps;
-mod docker;
 mod util;
 
 #[macro_use]
