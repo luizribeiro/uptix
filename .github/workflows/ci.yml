@@ -54,6 +54,10 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - uses: cachix/install-nix-action@v15
+      - uses: cachix/cachix-action@v10
+        with:
+          name: uptix
+          authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
       - run: nix develop -c uptix
         working-directory: ./example/
       - run: |
