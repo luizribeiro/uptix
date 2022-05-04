@@ -3,6 +3,7 @@ use async_trait::async_trait;
 use rnix::{SyntaxKind, SyntaxNode};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::process::Command;
 
 #[derive(Default, PartialEq, Clone, Debug)]
 pub struct GitHub {
@@ -63,6 +64,26 @@ struct GitHubBranchInfo {
     commit: GitHubCommitInfo,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+struct GitHubPrefetchInfo {
+    sha256: String,
+}
+
+fn compute_nix_sha256(dependency: &GitHub, rev: &str) -> String {
+    let output = Command::new("nix-prefetch-git")
+        .arg("--quiet")
+        .arg("--rev")
+        .arg(rev)
+        .arg(format!(
+            "https://github.com/{}/{}/",
+            dependency.owner, dependency.repo,
+        ))
+        .output()
+        .expect("failed to execute process");
+    let prefetch_info: GitHubPrefetchInfo = serde_json::from_slice(&output.stdout).unwrap();
+    return prefetch_info.sha256;
+}
+
 #[async_trait]
 impl Lockable for GitHub {
     fn key(&self) -> String {
@@ -97,12 +118,13 @@ impl Lockable for GitHub {
             .await
             .unwrap();
         let branch_info: GitHubBranchInfo = serde_json::from_str(&response).unwrap();
+        let rev = branch_info.commit.sha;
+        let sha256 = compute_nix_sha256(self, &rev);
         return Ok(Box::new(GitHubLock {
             owner: self.owner.clone(),
             repo: self.repo.clone(),
-            rev: branch_info.commit.sha,
-            // TODO: replace with nix hash for commit
-            sha256: "foobar".to_string(),
+            rev,
+            sha256,
         }));
     }
 }
@@ -179,7 +201,8 @@ mod tests {
                 "owner": "luizribeiro",
                 "repo": "uptix",
                 "rev": "b28012d8b7f8ef54492c66f3a77074391e9818b9",
-                "sha256": "foobar",
+                // TODO: mock std::process::Command on test
+                "sha256": "1vxzg4wdjvfnc7fjqr9flza5y7gh69w0bpf7mhyf06ddcvq3p00j",
             }),
         );
 
