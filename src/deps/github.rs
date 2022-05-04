@@ -50,6 +50,16 @@ struct GitHubLock {
     sha256: String,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+struct GitHubCommitInfo {
+    sha: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct GitHubBranchInfo {
+    commit: GitHubCommitInfo,
+}
+
 #[async_trait]
 impl Lockable for GitHub {
     fn key(&self) -> String {
@@ -60,11 +70,26 @@ impl Lockable for GitHub {
     }
 
     async fn lock(&self) -> Result<Box<dyn erased_serde::Serialize>, &'static str> {
+        let client = reqwest::Client::new();
+        let url_as_str = format!(
+            "https://api.github.com/repos/{}/{}/branches/{}",
+            self.owner, self.repo, self.branch,
+        );
+        let url = reqwest::Url::parse(&url_as_str).unwrap();
+        let response = client
+            .request(reqwest::Method::GET, url)
+            .header(reqwest::header::USER_AGENT, "uptix/0.1.0")
+            .send()
+            .await
+            .unwrap()
+            .text()
+            .await
+            .unwrap();
+        let branch_info: GitHubBranchInfo = serde_json::from_str(&response).unwrap();
         return Ok(Box::new(GitHubLock {
             owner: self.owner.clone(),
             repo: self.repo.clone(),
-            // TODO: replace with commit hash
-            rev: self.branch.clone(),
+            rev: branch_info.commit.sha,
             // TODO: replace with nix hash for commit
             sha256: "foobar".to_string(),
         }));
@@ -126,7 +151,7 @@ mod tests {
             json!({
                 "owner": "luizribeiro",
                 "repo": "uptix",
-                "rev": "main",
+                "rev": "b28012d8b7f8ef54492c66f3a77074391e9818b9",
                 "sha256": "foobar",
             }),
         );
