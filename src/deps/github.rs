@@ -4,11 +4,13 @@ use rnix::{SyntaxKind, SyntaxNode};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(Default, PartialEq, Clone, Debug)]
 pub struct GitHub {
     owner: String,
     repo: String,
     branch: String,
+    override_scheme: Option<String>,
+    override_domain: Option<String>,
 }
 
 impl GitHub {
@@ -30,6 +32,7 @@ impl GitHub {
             owner: args.get("owner").unwrap().to_string(),
             repo: args.get("repo").unwrap().to_string(),
             branch: args.get("branch").unwrap().to_string(),
+            ..Default::default()
         });
     }
 }
@@ -72,8 +75,16 @@ impl Lockable for GitHub {
     async fn lock(&self) -> Result<Box<dyn erased_serde::Serialize>, &'static str> {
         let client = reqwest::Client::new();
         let url_as_str = format!(
-            "https://api.github.com/repos/{}/{}/branches/{}",
-            self.owner, self.repo, self.branch,
+            "{}://{}/repos/{}/{}/branches/{}",
+            self.override_scheme
+                .as_ref()
+                .unwrap_or(&"https".to_string()),
+            self.override_domain
+                .as_ref()
+                .unwrap_or(&"api.github.com".to_string()),
+            self.owner,
+            self.repo,
+            self.branch,
         );
         let url = reqwest::Url::parse(&url_as_str).unwrap();
         let response = client
@@ -122,6 +133,7 @@ mod tests {
             owner: "luizribeiro".to_string(),
             repo: "uptix".to_string(),
             branch: "main".to_string(),
+            ..Default::default()
         }];
         assert_eq!(dependencies, expected_dependencies);
     }
@@ -132,20 +144,35 @@ mod tests {
             owner: "luizribeiro".to_string(),
             repo: "uptix".to_string(),
             branch: "main".to_string(),
+            ..Default::default()
         };
         assert_eq!(dependency.key(), "$GITHUB_BRANCH$:luizribeiro/uptix:main");
     }
 
     #[tokio::test]
     async fn it_locks() {
+        let address = mockito::server_address().to_string();
+        let _branch_mock = mockito::mock("GET", "/repos/luizribeiro/uptix/branches/main")
+            .with_status(200)
+            .with_body(
+                r#"{
+                    "commit": {
+                        "sha": "b28012d8b7f8ef54492c66f3a77074391e9818b9"
+                    }
+                }"#,
+            )
+            .create();
+
         let dependency = GitHub {
             owner: "luizribeiro".to_string(),
             repo: "uptix".to_string(),
             branch: "main".to_string(),
+            override_scheme: Some("http".to_string()),
+            override_domain: Some(address),
         };
-
         let lock = dependency.lock().await.unwrap();
         let lock_value = serde_json::to_value(lock).unwrap();
+
         assert_eq!(
             lock_value,
             json!({
@@ -155,5 +182,7 @@ mod tests {
                 "sha256": "foobar",
             }),
         );
+
+        mockito::reset();
     }
 }
