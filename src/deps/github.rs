@@ -45,7 +45,12 @@ fn extract_key_value(node: &SyntaxNode) -> (String, String) {
 #[async_trait]
 impl Lockable for GitHub {
     fn key(&self) -> String {
-        return String::from("");
+        return format!(
+            "$GITHUB_BRANCH$:{}/{}:{}",
+            self.owner,
+            self.repo,
+            self.branch,
+        );
     }
 
     async fn lock(&self) -> Result<Box<dyn Serialize>, &'static str> {
@@ -55,6 +60,7 @@ impl Lockable for GitHub {
 
 #[cfg(test)]
 mod tests {
+    use crate::deps::Lockable;
     use crate::deps::collect_ast_dependencies;
     use super::GitHub;
 
@@ -81,5 +87,15 @@ mod tests {
             },
         ];
         assert_eq!(dependencies, expected_dependencies);
+    }
+
+    #[test]
+    fn it_has_a_key() {
+        let dependency = GitHub {
+            owner: "luizribeiro".to_string(),
+            repo: "uptix".to_string(),
+            branch: "main".to_string(),
+        };
+        assert_eq!(dependency.key(), "$GITHUB_BRANCH$:luizribeiro/uptix:main");
     }
 }
