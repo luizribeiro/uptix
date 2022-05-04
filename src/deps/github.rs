@@ -47,9 +47,7 @@ impl Lockable for GitHub {
     fn key(&self) -> String {
         return format!(
             "$GITHUB_BRANCH$:{}/{}:{}",
-            self.owner,
-            self.repo,
-            self.branch,
+            self.owner, self.repo, self.branch,
         );
     }
 
@@ -60,9 +58,9 @@ impl Lockable for GitHub {
 
 #[cfg(test)]
 mod tests {
-    use crate::deps::Lockable;
-    use crate::deps::collect_ast_dependencies;
     use super::GitHub;
+    use crate::deps::collect_ast_dependencies;
+    use crate::deps::Lockable;
 
     #[test]
     fn it_parses() {
@@ -79,13 +77,11 @@ mod tests {
             .iter()
             .map(|d| d.as_git_hub().unwrap().clone())
             .collect();
-        let expected_dependencies = vec![
-            GitHub {
-                owner: "luizribeiro".to_string(),
-                repo: "uptix".to_string(),
-                branch: "main".to_string(),
-            },
-        ];
+        let expected_dependencies = vec![GitHub {
+            owner: "luizribeiro".to_string(),
+            repo: "uptix".to_string(),
+            branch: "main".to_string(),
+        }];
         assert_eq!(dependencies, expected_dependencies);
     }
 
