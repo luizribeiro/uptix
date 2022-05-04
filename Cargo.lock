@@ -1548,6 +1548,7 @@ dependencies = [
  "mockito",
  "regex",
  "rnix",
+ "serde",
  "serde_json",
  "tokio",
  "walkdir",

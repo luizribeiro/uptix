@@ -1,7 +1,7 @@
 use crate::deps::Lockable;
 use async_trait::async_trait;
-use erased_serde::Serialize;
 use rnix::{SyntaxKind, SyntaxNode};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(PartialEq, Clone, Debug)]
@@ -42,6 +42,14 @@ fn extract_key_value(node: &SyntaxNode) -> (String, String) {
     return (key.text().to_string(), value);
 }
 
+#[derive(Serialize, Deserialize)]
+struct GitHubLock {
+    owner: String,
+    repo: String,
+    rev: String,
+    sha256: String,
+}
+
 #[async_trait]
 impl Lockable for GitHub {
     fn key(&self) -> String {
@@ -51,8 +59,15 @@ impl Lockable for GitHub {
         );
     }
 
-    async fn lock(&self) -> Result<Box<dyn Serialize>, &'static str> {
-        return Ok(Box::new("TODO"));
+    async fn lock(&self) -> Result<Box<dyn erased_serde::Serialize>, &'static str> {
+        return Ok(Box::new(GitHubLock {
+            owner: self.owner.clone(),
+            repo: self.repo.clone(),
+            // TODO: replace with commit hash
+            rev: self.branch.clone(),
+            // TODO: replace with nix hash for commit
+            sha256: "foobar".to_string(),
+        }));
     }
 }
 
@@ -61,6 +76,7 @@ mod tests {
     use super::GitHub;
     use crate::deps::collect_ast_dependencies;
     use crate::deps::Lockable;
+    use serde_json::json;
 
     #[test]
     fn it_parses() {
@@ -93,5 +109,26 @@ mod tests {
             branch: "main".to_string(),
         };
         assert_eq!(dependency.key(), "$GITHUB_BRANCH$:luizribeiro/uptix:main");
+    }
+
+    #[tokio::test]
+    async fn it_locks() {
+        let dependency = GitHub {
+            owner: "luizribeiro".to_string(),
+            repo: "uptix".to_string(),
+            branch: "main".to_string(),
+        };
+
+        let lock = dependency.lock().await.unwrap();
+        let lock_value = serde_json::to_value(lock).unwrap();
+        assert_eq!(
+            lock_value,
+            json!({
+                "owner": "luizribeiro",
+                "repo": "uptix",
+                "rev": "main",
+                "sha256": "foobar",
+            }),
+        );
     }
 }
