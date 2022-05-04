@@ -18,23 +18,35 @@
         export OPENSSL_LIB_DIR="${pkgs.openssl.out}/lib"
       '';
     in
-    {
+    with pkgs; {
       defaultPackage = self.packages."${system}".uptix;
-      packages.uptix = pkgs.rustPlatform.buildRustPackage {
+      packages.uptix = rustPlatform.buildRustPackage {
         pname = "uptix";
         version = "0.1.0";
         src = ./.;
         cargoLock.lockFile = ./Cargo.lock;
-        buildInputs = [ pkgs.openssl ];
+        buildInputs = [
+          openssl
+          makeWrapper
+        ];
         preBuild = exports;
+        postInstall = ''
+          wrapProgram $out/bin/uptix \
+            --prefix PATH : ${lib.makeBinPath [ nix-prefetch-git ]}
+        '';
+
         meta = {
           description = "A tool for pinning external dependencies on Nix.";
         };
       };
 
-      devShell = pkgs.mkShell {
-        buildInputs = [ pkgs.openssl ];
-        nativeBuildInputs = with pkgs; [
+      devShell = mkShell {
+        buildInputs = [
+          openssl
+        ];
+        nativeBuildInputs = [
+          # dependencies which go on the nix wrapper
+          nix-prefetch-git
           # tools for development
           rustc
           cargo
@@ -42,8 +54,8 @@
           rustfmt
         ];
         shellHook = exports;
-        NIX_LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [
-          pkgs.openssl.dev
+        NIX_LD_LIBRARY_PATH = lib.makeLibraryPath [
+          openssl.dev
         ];
       };
     }
