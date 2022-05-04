@@ -47,7 +47,7 @@ pub fn collect_file_dependencies(file_path: &str) -> Vec<Dependency> {
 }
 
 fn collect_ast_dependencies(node: SyntaxNode) -> Vec<Dependency> {
-    if node.kind() != SyntaxKind::NODE_APPLY {
+    if node.kind() != SyntaxKind::NODE_SELECT {
         return node
             .children()
             .map(|c| collect_ast_dependencies(c))
@@ -55,25 +55,12 @@ fn collect_ast_dependencies(node: SyntaxNode) -> Vec<Dependency> {
             .collect();
     }
 
-    let mut children = node.children();
-    let select_node = match children.next() {
-        Some(n) => match n.kind() {
-            SyntaxKind::NODE_SELECT => n,
-            _ => return vec![],
-        },
-        _ => return vec![],
-    };
-
-    let func = select_node.text().to_string();
+    let func = node.text().to_string();
     if !func.starts_with("uptix.") {
         return vec![];
     }
 
-    let value_node = match children.next() {
-        Some(n) => n,
-        None => return vec![],
-    };
-
+    let value_node = node.next_sibling().unwrap();
     let dependency = match <Dependency>::new(&func, &value_node) {
         Ok(d) => d,
         Err(_) => return vec![],
