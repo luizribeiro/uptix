@@ -11,6 +11,7 @@ pub struct Docker {
     registry: String,
     image: String,
     tag: String,
+    use_https: bool,
 }
 
 lazy_static! {
@@ -51,6 +52,7 @@ impl Docker {
             registry,
             image,
             tag,
+            use_https: true,
         });
     }
 
@@ -59,8 +61,10 @@ impl Docker {
         let scopes = vec![login_scope.as_str()];
         let dclient = Client::configure()
             .registry(self.registry.as_str())
+            .insecure_registry(!self.use_https)
             .build()?
-            .authenticate(scopes.as_slice()).await?;
+            .authenticate(scopes.as_slice())
+            .await?;
         let digest = dclient
             .get_manifestref(self.image.as_str(), self.tag.as_str())
             .await?;
@@ -113,15 +117,37 @@ mod tests {
 
     #[tokio::test]
     async fn it_locks() {
+        let registry = mockito::server_address().to_string();
+        let _auth_mock = mockito::mock("GET", "/v2/")
+            .with_status(200)
+            .with_header(
+                "WWW-Authenticate",
+                format!(r#"Bearer realm="http://{}/token""#, registry).as_str(),
+            )
+            .with_body("{}")
+            .create();
+        let _token_mock = mockito::mock("GET", "/token")
+            .match_query(mockito::Matcher::Any)
+            .with_status(200)
+            .with_body(r#"{"token": "hunter2"}"#)
+            .create();
+        let _manifest_mock =
+            mockito::mock("HEAD", "/v2/homeassistant/home-assistant/manifests/stable")
+                .with_status(200)
+                .with_header("docker-content-digest", "sha256:foobar")
+                .create();
+
         let dependency = super::Docker {
             name: "homeassistant/home-assistant:stable".to_string(),
-            registry: "registry-1.docker.io".to_string(),
+            registry,
             image: "homeassistant/home-assistant".to_string(),
             tag: "stable".to_string(),
+            use_https: false,
         };
-        // TODO: mock network and improve test
         let lock = dependency.lock().await.unwrap();
         let lock_value = serde_json::to_value(lock).unwrap();
-        assert!(lock_value.as_str().unwrap().starts_with(r#"sha256"#));
+
+        assert_eq!(lock_value.as_str().unwrap(), "sha256:foobar");
+        mockito::reset();
     }
 }
