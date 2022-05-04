@@ -78,8 +78,8 @@ impl Docker {
 
 #[async_trait]
 impl Lockable for Docker {
-    fn key(&self) -> &str {
-        return &self.name;
+    fn key(&self) -> String {
+        return self.name.to_string();
     }
 
     async fn lock(&self) -> Result<Box<dyn Serialize>, &'static str> {

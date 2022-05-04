@@ -44,8 +44,8 @@ fn extract_key_value(node: &SyntaxNode) -> (String, String) {
 
 #[async_trait]
 impl Lockable for GitHub {
-    fn key(&self) -> &str {
-        return "";
+    fn key(&self) -> String {
+        return String::from("");
     }
 
     async fn lock(&self) -> Result<Box<dyn Serialize>, &'static str> {

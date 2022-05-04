@@ -17,7 +17,7 @@ pub enum Dependency {
 
 #[async_trait]
 pub trait Lockable {
-    fn key(&self) -> &str;
+    fn key(&self) -> String;
     async fn lock(&self) -> Result<Box<dyn Serialize>, &'static str>;
 }
 
@@ -31,10 +31,10 @@ impl Dependency {
         return Ok(dep);
     }
 
-    pub fn key(&self) -> &str {
+    pub fn key(&self) -> String {
         match self {
-            Dependency::Docker(d) => &d.key(),
-            Dependency::GitHub(d) => &d.key(),
+            Dependency::Docker(d) => d.key(),
+            Dependency::GitHub(d) => d.key(),
         }
     }
 
