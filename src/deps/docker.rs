@@ -6,6 +6,7 @@ use erased_serde::Serialize;
 use regex::Regex;
 use rnix::{SyntaxKind, SyntaxNode};
 
+#[derive(PartialEq, Debug)]
 pub struct Docker {
     name: String,
     registry: String,
@@ -104,15 +105,21 @@ mod tests {
         let dependencies = collect_ast_dependencies(ast.node());
         assert_eq!(dependencies.len(), 2);
         let Docker(dependency) = dependencies.get(0).unwrap();
-        assert_eq!(dependency.name, "homeassistant/home-assistant:stable");
-        assert_eq!(dependency.registry, "registry-1.docker.io");
-        assert_eq!(dependency.image, "homeassistant/home-assistant");
-        assert_eq!(dependency.tag, "stable");
+        assert_eq!(dependency, &super::Docker {
+            name: "homeassistant/home-assistant:stable".to_string(),
+            registry: "registry-1.docker.io".to_string(),
+            image: "homeassistant/home-assistant".to_string(),
+            tag: "stable".to_string(),
+            use_https: true,
+        });
         let Docker(dependency) = dependencies.get(1).unwrap();
-        assert_eq!(dependency.name, "foo.io/baz/bar:latest");
-        assert_eq!(dependency.registry, "foo.io");
-        assert_eq!(dependency.image, "baz/bar");
-        assert_eq!(dependency.tag, "latest");
+        assert_eq!(dependency, &super::Docker {
+            name: "foo.io/baz/bar:latest".to_string(),
+            registry: "foo.io".to_string(),
+            image: "baz/bar".to_string(),
+            tag: "latest".to_string(),
+            use_https: true,
+        });
     }
 
     #[tokio::test]
