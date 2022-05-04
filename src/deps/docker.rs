@@ -6,7 +6,7 @@ use erased_serde::Serialize;
 use regex::Regex;
 use rnix::{SyntaxKind, SyntaxNode};
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Clone, Debug)]
 pub struct Docker {
     name: String,
     registry: String,
@@ -90,36 +90,39 @@ impl Lockable for Docker {
 
 #[cfg(test)]
 mod tests {
+    use super::Docker;
     use crate::deps::collect_ast_dependencies;
-    use crate::deps::Dependency::Docker;
     use crate::deps::Lockable;
 
     #[test]
     fn it_parses() {
         let ast = rnix::parse(
-            "{
-            hass = uptix.dockerImage \"homeassistant/home-assistant:stable\";
-            customRepo = uptix.dockerImage \"foo.io/baz/bar:latest\";
-        }",
+            r#"{
+                hass = uptix.dockerImage "homeassistant/home-assistant:stable";
+                customRepo = uptix.dockerImage "foo.io/baz/bar:latest";
+            }"#,
         );
-        let dependencies = collect_ast_dependencies(ast.node());
-        assert_eq!(dependencies.len(), 2);
-        let Docker(dependency) = dependencies.get(0).unwrap();
-        assert_eq!(dependency, &super::Docker {
-            name: "homeassistant/home-assistant:stable".to_string(),
-            registry: "registry-1.docker.io".to_string(),
-            image: "homeassistant/home-assistant".to_string(),
-            tag: "stable".to_string(),
-            use_https: true,
-        });
-        let Docker(dependency) = dependencies.get(1).unwrap();
-        assert_eq!(dependency, &super::Docker {
-            name: "foo.io/baz/bar:latest".to_string(),
-            registry: "foo.io".to_string(),
-            image: "baz/bar".to_string(),
-            tag: "latest".to_string(),
-            use_https: true,
-        });
+        let dependencies: Vec<_> = collect_ast_dependencies(ast.node())
+            .iter()
+            .map(|d| d.as_docker().unwrap().clone())
+            .collect();
+        let expected_dependencies = vec![
+            Docker {
+                name: "homeassistant/home-assistant:stable".to_string(),
+                registry: "registry-1.docker.io".to_string(),
+                image: "homeassistant/home-assistant".to_string(),
+                tag: "stable".to_string(),
+                use_https: true,
+            },
+            Docker {
+                name: "foo.io/baz/bar:latest".to_string(),
+                registry: "foo.io".to_string(),
+                image: "baz/bar".to_string(),
+                tag: "latest".to_string(),
+                use_https: true,
+            },
+        ];
+        assert_eq!(dependencies, expected_dependencies);
     }
 
     #[tokio::test]
@@ -144,7 +147,7 @@ mod tests {
                 .with_header("docker-content-digest", "sha256:foobar")
                 .create();
 
-        let dependency = super::Docker {
+        let dependency = Docker {
             name: "homeassistant/home-assistant:stable".to_string(),
             registry,
             image: "homeassistant/home-assistant".to_string(),

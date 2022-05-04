@@ -2,10 +2,12 @@ mod docker;
 
 use crate::deps::docker::Docker;
 use async_trait::async_trait;
+use enum_as_inner::EnumAsInner;
 use erased_serde::Serialize;
 use rnix::{SyntaxKind, SyntaxNode};
 use std::fs;
 
+#[derive(EnumAsInner, Debug)]
 pub enum Dependency {
     Docker(Docker),
 }
