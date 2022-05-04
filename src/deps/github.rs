@@ -12,6 +12,7 @@ pub struct GitHub {
     branch: String,
     override_scheme: Option<String>,
     override_domain: Option<String>,
+    override_nix_sha256: Option<String>,
 }
 
 impl GitHub {
@@ -70,6 +71,10 @@ struct GitHubPrefetchInfo {
 }
 
 fn compute_nix_sha256(dependency: &GitHub, rev: &str) -> String {
+    if let Some(overridden_nix_sha256) = &dependency.override_nix_sha256 {
+        return overridden_nix_sha256.to_string();
+    }
+
     let output = Command::new("nix-prefetch-git")
         .arg("--quiet")
         .arg("--rev")
@@ -191,6 +196,9 @@ mod tests {
             branch: "main".to_string(),
             override_scheme: Some("http".to_string()),
             override_domain: Some(address),
+            override_nix_sha256: Some(
+                "1vxzg4wdjvfnc7fjqr9flza5y7gh69w0bpf7mhyf06ddcvq3p00j".to_string(),
+            ),
         };
         let lock = dependency.lock().await.unwrap();
         let lock_value = serde_json::to_value(lock).unwrap();
@@ -201,7 +209,6 @@ mod tests {
                 "owner": "luizribeiro",
                 "repo": "uptix",
                 "rev": "b28012d8b7f8ef54492c66f3a77074391e9818b9",
-                // TODO: mock std::process::Command on test
                 "sha256": "1vxzg4wdjvfnc7fjqr9flza5y7gh69w0bpf7mhyf06ddcvq3p00j",
             }),
         );
