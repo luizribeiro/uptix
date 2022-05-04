@@ -15,6 +15,9 @@ pub struct Docker {
     use_https: bool,
 }
 
+const DEFAULT_REGISTRY: &str = "registry-1.docker.io";
+const DEFAULT_TAG: &str = "latest";
+
 lazy_static! {
     static ref RE: Regex =
         Regex::new(r#"((?:([a-z0-9.-]+)/)?([a-z0-9-]+/[a-z0-9-]+):?([a-z0-9.-]+)?)"#).unwrap();
@@ -39,14 +42,14 @@ impl Docker {
             .to_string();
         let registry = caps
             .get(2)
-            .map_or("registry-1.docker.io", |m| m.as_str())
+            .map_or(DEFAULT_REGISTRY, |m| m.as_str())
             .to_string();
         let image = caps
             .get(3)
             .map(|m| m.as_str())
             .expect("Invalid Docker image")
             .to_string();
-        let tag = caps.get(4).map_or("latest", |m| m.as_str()).to_string();
+        let tag = caps.get(4).map_or(DEFAULT_TAG, |m| m.as_str()).to_string();
 
         return Ok(Docker {
             name,
@@ -99,7 +102,7 @@ mod tests {
         let ast = rnix::parse(
             r#"{
                 hass = uptix.dockerImage "homeassistant/home-assistant:stable";
-                customRepo = uptix.dockerImage "foo.io/baz/bar:latest";
+                customRepo = uptix.dockerImage "foo.io/baz/bar";
             }"#,
         );
         let dependencies: Vec<_> = collect_ast_dependencies(ast.node())
@@ -115,7 +118,7 @@ mod tests {
                 use_https: true,
             },
             Docker {
-                name: "foo.io/baz/bar:latest".to_string(),
+                name: "foo.io/baz/bar".to_string(),
                 registry: "foo.io".to_string(),
                 image: "baz/bar".to_string(),
                 tag: "latest".to_string(),
