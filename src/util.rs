@@ -44,6 +44,10 @@ fn value_from_nix(node: &SyntaxNode) -> Result<Value, &'static str> {
                 let v = token.text().parse::<i32>().unwrap();
                 Ok(serde_json::Value::from(v))
             }
+            SyntaxKind::TOKEN_FLOAT => {
+                let v = token.text().parse::<f32>().unwrap();
+                Ok(serde_json::Value::from(v))
+            }
             _ => Err("Unexpected token type"),
         };
     }
@@ -89,6 +93,7 @@ mod tests {
     pub struct B {
         b: String,
         c: i32,
+        d: f32,
     }
 
     #[test]
@@ -99,6 +104,7 @@ mod tests {
                 b = {
                     b = "bar";
                     c = 42;
+                    d = 3.1415;
                 };
             }"#,
         );
@@ -110,6 +116,7 @@ mod tests {
                 b: B {
                     b: "bar".to_string(),
                     c: 42,
+                    d: 3.1415,
                 }
             },
         );
