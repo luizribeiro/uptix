@@ -22,3 +22,7 @@ pub fn discover_nix_files(root_path: &str) -> Vec<PathBuf> {
     }
     return files;
 }
+
+pub fn user_agent() -> String {
+    return format!("uptix/{}", env!("CARGO_PKG_VERSION"));
+}

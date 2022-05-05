@@ -1,4 +1,5 @@
 use crate::deps::Lockable;
+use crate::util;
 use async_trait::async_trait;
 use rnix::{SyntaxKind, SyntaxNode};
 use serde::{Deserialize, Serialize};
@@ -74,10 +75,12 @@ async fn fetch_github_branch_info(dependency: &GitHub) -> GitHubBranchInfo {
     let client = reqwest::Client::new();
     let url_as_str = format!(
         "{}://{}/repos/{}/{}/branches/{}",
-        dependency.override_scheme
+        dependency
+            .override_scheme
             .as_ref()
             .unwrap_or(&"https".to_string()),
-        dependency.override_domain
+        dependency
+            .override_domain
             .as_ref()
             .unwrap_or(&"api.github.com".to_string()),
         dependency.owner,
@@ -87,7 +90,7 @@ async fn fetch_github_branch_info(dependency: &GitHub) -> GitHubBranchInfo {
     let url = reqwest::Url::parse(&url_as_str).unwrap();
     let response = client
         .request(reqwest::Method::GET, url)
-        .header(reqwest::header::USER_AGENT, "uptix/0.1.0")
+        .header(reqwest::header::USER_AGENT, util::user_agent())
         .send()
         .await
         .unwrap()
@@ -183,6 +186,10 @@ mod tests {
     async fn it_locks() {
         let address = mockito::server_address().to_string();
         let _branch_mock = mockito::mock("GET", "/repos/luizribeiro/uptix/branches/main")
+            .match_header(
+                &reqwest::header::USER_AGENT.to_string(),
+                mockito::Matcher::Regex(r"^uptix/[0-9.]+$".to_string()),
+            )
             .with_status(200)
             .with_body(
                 r#"{
