@@ -4,8 +4,6 @@
 
 A tool for pinning (and updating) external dependencies on NixOS configurations.
 
-For now, only Docker images are supported.
-
 ## Setup
 
 On your `flake.nix`, just add this repository as an input and add the
@@ -31,7 +29,8 @@ On your `flake.nix`, just add this repository as an input and add the
 }
 ```
 
-Once that is done, you should be able to use it from your configurations.
+Once that is done, you should be able to use it from your configurations, as
+`uptix` will be passed as an arugment to all modules on your configuration.
 
 If you have a shell setup on your flake, you will probably also want to
 install `uptix` onto your `flake.nix`'s `devShell`:
@@ -56,11 +55,48 @@ $ nix run "github:luizribeiro/uptix"
 
 ## Usage
 
-Once you have `uptix` setup, all you have to do is prefix your Docker image
-names with `uptix.dockerImage` on your configurations. For example:
+Once you have `uptix` setup, all you have to do is use one of the functions
+provided by the `uptix` module and call the `uptix` command from the command
+line to populate the `uptix.`See the examples below for details on usage for
+each type of dependency.
+
+Make sure to check the `uptix.lock` file into your source control
+repository. This is the file that keeps track of which version of the
+Docker image you are currently using.
+
+Every time you run the `uptix` binary, it will find all of your
+`uptix` references and update the `uptix.lock` with the SHA256
+digest for the latest version of each dependency.
+
+### GitHub
+
+For GitHub checkouts that are typically fetched with `fetchFromGitHub`, you
+can use `uptix.github` as follows:
 
 ```nix
-# note that uptix is now available as an argument on your configuration.
+{ pkgs, uptix, stdenv, ... }:
+
+stdenv.mkDerivation {
+  pname = "foo";
+  # ...
+  src = pkgs.lib.fetchFromGitHub (uptix.github {
+    owner = "torvalds";
+    repo = "linux";
+    branch = "master";
+  });
+  # ...
+}
+```
+
+Note that this will use the latest commit on the `master` branch. Using
+tags from GitHub releases is not yet supported.
+
+### Docker
+
+For Docker images, prefix the image names with `uptix.dockerImage` on your
+configurations:
+
+```nix
 { pkgs, uptix, ... }:
 
 {
@@ -73,25 +109,3 @@ names with `uptix.dockerImage` on your configurations. For example:
   };
 }
 ```
-
-Once that is in place, run `uptix` from the command line and voilà:
-
-```
-$ uptix
-Found 2 nix files
-Parsing files... Done.
-Found 1 uptix dependencies
-Looking for updates... Done.
-Wrote uptix.lock successfully
-```
-
-Make sure to check the `uptix.lock` file into your source control
-repository. This is the file that keeps track of which version of the
-Docker image you are currently using.
-
-Every time you run the `uptix` binary, it will find all of your
-`uptix.dockerImage` references and update the `uptix.lock` with the SHA256
-digest for the latest version.
-
-If you want to update your Docker images to their latest versions, simply
-run `uptix` again.
