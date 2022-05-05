@@ -11,6 +11,14 @@ let
     });
     cargoSha256 = "sha256-p6vLLM6A16o8dKLwUfP/qf4crnzlgp4f+Vs0ocRChE4=";
   };
+  releasedHelloWorldRS = pkgs.rustPlatform.buildRustPackage {
+    name = "released-hello-world-rs";
+    src = pkgs.fetchFromGitHub (uptix.githubRelease {
+      owner = "luizribeiro";
+      repo = "hello-world-rs";
+    });
+    cargoSha256 = "sha256-VRMgCpkfkuZmkhgxP542kyjAPcBLiKLplQsKPvJPfhE=";
+  };
 in
 {
   imports = [ ./hardware-configuration.nix ];
@@ -23,5 +31,6 @@ in
 
   environment.systemPackages = [
     helloWorldRS
+    releasedHelloWorldRS
   ];
 }
