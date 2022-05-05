@@ -1,12 +1,11 @@
 use crate::deps::Lockable;
 use crate::util;
 use async_trait::async_trait;
-use rnix::{SyntaxKind, SyntaxNode};
+use rnix::SyntaxNode;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::process::Command;
 
-#[derive(Default, PartialEq, Clone, Debug)]
+#[derive(Default, Serialize, Deserialize, PartialEq, Clone, Debug)]
 pub struct GitHub {
     owner: String,
     repo: String,
@@ -18,34 +17,11 @@ pub struct GitHub {
 
 impl GitHub {
     pub fn new(node: &SyntaxNode) -> Result<GitHub, &'static str> {
-        if node.kind() != SyntaxKind::NODE_ATTR_SET {
-            return Err("Unexpected node");
+        match util::from_attr_set(node) {
+            Ok(r) => Ok(r),
+            _ => Err("Error while parsing arguments of uptix.github"),
         }
-
-        let mut args: HashMap<String, String> = HashMap::new();
-        for child in node.children() {
-            if child.kind() != SyntaxKind::NODE_KEY_VALUE {
-                return Err("Unexpected node");
-            }
-            let (key, value) = extract_key_value(&child);
-            args.insert(key, value);
-        }
-
-        return Ok(GitHub {
-            owner: args.get("owner").unwrap().to_string(),
-            repo: args.get("repo").unwrap().to_string(),
-            branch: args.get("branch").unwrap().to_string(),
-            ..Default::default()
-        });
     }
-}
-
-fn extract_key_value(node: &SyntaxNode) -> (String, String) {
-    let key = node.first_child().unwrap();
-    let mut value = key.next_sibling().unwrap().text().to_string();
-    value.pop();
-    value.remove(0);
-    return (key.text().to_string(), value);
 }
 
 #[derive(Serialize, Deserialize)]
