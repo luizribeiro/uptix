@@ -2,7 +2,7 @@ mod docker;
 mod github;
 
 use crate::deps::docker::Docker;
-use crate::deps::github::GitHubBranch;
+use crate::deps::github::branch::GitHubBranch;
 use async_trait::async_trait;
 use enum_as_inner::EnumAsInner;
 use erased_serde::Serialize;
