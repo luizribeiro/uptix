@@ -29,18 +29,14 @@ pub fn user_agent() -> String {
     return format!("uptix/{}", env!("CARGO_PKG_VERSION"));
 }
 
-fn extract_key_value(node: &SyntaxNode) -> (String, String) {
-    let key = node.first_child().unwrap();
-    let mut value = key.next_sibling().unwrap().text().to_string();
-    value.pop();
-    value.remove(0);
-    return (key.text().to_string(), value);
-}
+fn value_from_nix(node: &SyntaxNode) -> Result<Value, &'static str> {
+    if node.kind() == SyntaxKind::NODE_STRING {
+        let mut w = node.text().to_string();
+        w.pop();
+        w.remove(0);
+        return Ok(serde_json::Value::String(w));
+    }
 
-pub fn from_attr_set<T>(node: &SyntaxNode) -> Result<T, &'static str>
-where
-    T: serde::de::DeserializeOwned,
-{
     if node.kind() != SyntaxKind::NODE_ATTR_SET {
         return Err("Unexpected node");
     }
@@ -48,12 +44,60 @@ where
     let mut attrs: Map<String, serde_json::Value> = Map::new();
     for child in node.children() {
         if child.kind() != SyntaxKind::NODE_KEY_VALUE {
-            return Err("Unexpected node");
+            return Err("Unexpected node, expected key value");
         }
-        let (key, value) = extract_key_value(&child);
-        attrs.insert(key, serde_json::Value::String(value));
+        let key = child.first_child().unwrap();
+        let value = key.next_sibling().unwrap();
+        attrs.insert(key.text().to_string(), value_from_nix(&value)?);
     }
 
-    let json = Value::Object(attrs).to_string();
+    return Ok(Value::Object(attrs));
+}
+
+pub fn from_attr_set<T>(node: &SyntaxNode) -> Result<T, &'static str>
+where
+    T: serde::de::DeserializeOwned,
+{
+    let value = value_from_nix(node)?;
+    let json = value.to_string();
     return Ok(serde_json::from_str::<T>(&json).unwrap());
+}
+
+#[cfg(test)]
+mod tests {
+    use super::from_attr_set;
+    use serde::{Deserialize, Serialize};
+
+    #[derive(Serialize, Deserialize, PartialEq, Debug)]
+    pub struct A {
+        a: String,
+        b: B,
+    }
+
+    #[derive(Serialize, Deserialize, PartialEq, Debug)]
+    pub struct B {
+        b: String,
+    }
+
+    #[test]
+    fn it_deserializes_attr_sets() {
+        let ast = rnix::parse(
+            r#"{
+                a = "foo";
+                b = {
+                    b = "bar";
+                };
+            }"#,
+        );
+        let attrset = ast.node().first_child().unwrap();
+        assert_eq!(
+            from_attr_set::<A>(&attrset).unwrap(),
+            A {
+                a: "foo".to_string(),
+                b: B {
+                    b: "bar".to_string(),
+                }
+            },
+        );
+    }
 }
