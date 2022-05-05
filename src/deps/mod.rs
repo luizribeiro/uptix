@@ -66,10 +66,30 @@ fn collect_ast_dependencies(node: SyntaxNode) -> Vec<Dependency> {
         return vec![];
     }
 
-    let value_node = node.next_sibling().unwrap();
-    let dependency = match <Dependency>::new(&func, &value_node) {
+    let value_node = node.next_sibling();
+    if value_node.is_none() {
+        return vec![];
+    }
+
+    let dependency = match <Dependency>::new(&func, &value_node.unwrap()) {
         Ok(d) => d,
         Err(_) => return vec![],
     };
     return vec![dependency];
+}
+
+#[cfg(test)]
+mod tests {
+    use super::collect_ast_dependencies;
+
+    #[test]
+    fn invalid_uptix_function() {
+        let ast = rnix::parse(
+            r#"{
+                uptixModule = uptix.nixosModules.uptix;
+            }"#,
+        );
+        let dependencies: Vec<_> = collect_ast_dependencies(ast.node());
+        assert_eq!(dependencies.len(), 0);
+    }
 }
