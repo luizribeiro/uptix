@@ -13,10 +13,6 @@
   } // utils.lib.eachSystem utils.lib.defaultSystems (system:
     let
       pkgs = import nixpkgs { inherit system; };
-      exports = ''
-        export OPENSSL_DIR="${pkgs.openssl.dev}"
-        export OPENSSL_LIB_DIR="${pkgs.openssl.out}/lib"
-      '';
     in
     with pkgs; {
       defaultPackage = self.packages."${system}".uptix;
@@ -29,7 +25,10 @@
           openssl
           makeWrapper
         ];
-        preBuild = exports;
+        preBuild = ''
+          export OPENSSL_DIR="${pkgs.openssl.dev}"
+          export OPENSSL_LIB_DIR="${pkgs.openssl.out}/lib"
+        '';
         postInstall = ''
           wrapProgram $out/bin/uptix \
             --prefix PATH : ${lib.makeBinPath [ nix-prefetch-git ]}
@@ -53,7 +52,8 @@
           rust-analyzer
           rustfmt
         ];
-        shellHook = exports;
+        OPENSSL_DIR = "${pkgs.openssl.dev}";
+        OPENSSL_LIB_DIR = "${pkgs.openssl.out}/lib";
         NIX_LD_LIBRARY_PATH = lib.makeLibraryPath [
           openssl.dev
         ];
