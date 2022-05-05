@@ -1,9 +1,9 @@
+use crate::deps::github;
 use crate::deps::Lockable;
 use crate::util;
 use async_trait::async_trait;
 use rnix::SyntaxNode;
 use serde::{Deserialize, Serialize};
-use std::process::Command;
 
 #[derive(Default, Serialize, Deserialize, PartialEq, Clone, Debug)]
 pub struct GitHubBranch {
@@ -24,14 +24,6 @@ impl GitHubBranch {
     }
 }
 
-#[derive(Serialize, Deserialize)]
-struct GitHubLock {
-    owner: String,
-    repo: String,
-    rev: String,
-    sha256: String,
-}
-
 #[derive(Serialize, Deserialize, Debug)]
 struct GitHubCommitInfo {
     sha: String,
@@ -40,11 +32,6 @@ struct GitHubCommitInfo {
 #[derive(Serialize, Deserialize, Debug)]
 struct GitHubBranchInfo {
     commit: GitHubCommitInfo,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct GitHubPrefetchInfo {
-    sha256: String,
 }
 
 async fn fetch_github_branch_info(dependency: &GitHubBranch) -> GitHubBranchInfo {
@@ -76,25 +63,6 @@ async fn fetch_github_branch_info(dependency: &GitHubBranch) -> GitHubBranchInfo
     return serde_json::from_str(&response).unwrap();
 }
 
-fn compute_nix_sha256(dependency: &GitHubBranch, rev: &str) -> String {
-    if let Some(overridden_nix_sha256) = &dependency.override_nix_sha256 {
-        return overridden_nix_sha256.to_string();
-    }
-
-    let output = Command::new("nix-prefetch-git")
-        .arg("--quiet")
-        .arg("--rev")
-        .arg(rev)
-        .arg(format!(
-            "https://github.com/{}/{}/",
-            dependency.owner, dependency.repo,
-        ))
-        .output()
-        .expect("failed to execute process");
-    let prefetch_info: GitHubPrefetchInfo = serde_json::from_slice(&output.stdout).unwrap();
-    return prefetch_info.sha256;
-}
-
 #[async_trait]
 impl Lockable for GitHubBranch {
     fn key(&self) -> String {
@@ -106,8 +74,11 @@ impl Lockable for GitHubBranch {
 
     async fn lock(&self) -> Result<Box<dyn erased_serde::Serialize>, &'static str> {
         let rev = fetch_github_branch_info(self).await.commit.sha;
-        let sha256 = compute_nix_sha256(self, &rev);
-        return Ok(Box::new(GitHubLock {
+        let sha256 = match &self.override_nix_sha256 {
+            Some(s) => s.to_string(),
+            None => github::compute_nix_sha256(&self.owner, &self.repo, &rev),
+        };
+        return Ok(Box::new(github::GitHubLock {
             owner: self.owner.clone(),
             repo: self.repo.clone(),
             rev,

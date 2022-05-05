@@ -3,6 +3,7 @@ mod github;
 
 use crate::deps::docker::Docker;
 use crate::deps::github::branch::GitHubBranch;
+use crate::deps::github::release::GitHubRelease;
 use async_trait::async_trait;
 use enum_as_inner::EnumAsInner;
 use erased_serde::Serialize;
@@ -13,6 +14,7 @@ use std::fs;
 pub enum Dependency {
     Docker(Docker),
     GitHubBranch(GitHubBranch),
+    GitHubRelease(GitHubRelease),
 }
 
 #[async_trait]
@@ -26,6 +28,7 @@ impl Dependency {
         let dep = match func {
             "uptix.dockerImage" => Dependency::Docker(Docker::new(&node)?),
             "uptix.githubBranch" => Dependency::GitHubBranch(GitHubBranch::new(&node)?),
+            "uptix.githubRelease" => Dependency::GitHubRelease(GitHubRelease::new(&node)?),
             _ => return Err("Unknown uptix function"),
         };
         return Ok(dep);
@@ -35,6 +38,7 @@ impl Dependency {
         match self {
             Dependency::Docker(d) => d.key(),
             Dependency::GitHubBranch(d) => d.key(),
+            Dependency::GitHubRelease(d) => d.key(),
         }
     }
 
@@ -42,6 +46,7 @@ impl Dependency {
         match self {
             Dependency::Docker(d) => d.lock().await,
             Dependency::GitHubBranch(d) => d.lock().await,
+            Dependency::GitHubRelease(d) => d.lock().await,
         }
     }
 }
