@@ -37,6 +37,17 @@ fn value_from_nix(node: &SyntaxNode) -> Result<Value, &'static str> {
         return Ok(serde_json::Value::String(w));
     }
 
+    if node.kind() == SyntaxKind::NODE_LITERAL {
+        let token = node.first_token().unwrap();
+        return match token.kind() {
+            SyntaxKind::TOKEN_INTEGER => {
+                let v = token.text().parse::<i32>().unwrap();
+                Ok(serde_json::Value::from(v))
+            }
+            _ => Err("Unexpected token type"),
+        };
+    }
+
     if node.kind() != SyntaxKind::NODE_ATTR_SET {
         return Err("Unexpected node");
     }
@@ -77,6 +88,7 @@ mod tests {
     #[derive(Serialize, Deserialize, PartialEq, Debug)]
     pub struct B {
         b: String,
+        c: i32,
     }
 
     #[test]
@@ -86,6 +98,7 @@ mod tests {
                 a = "foo";
                 b = {
                     b = "bar";
+                    c = 42;
                 };
             }"#,
         );
@@ -96,6 +109,7 @@ mod tests {
                 a: "foo".to_string(),
                 b: B {
                     b: "bar".to_string(),
+                    c: 42,
                 }
             },
         );
