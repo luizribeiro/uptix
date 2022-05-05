@@ -94,6 +94,8 @@ mod tests {
         b: String,
         c: i32,
         d: f32,
+        e: Option<i32>,
+        f: Option<i32>,
     }
 
     #[test]
@@ -105,6 +107,7 @@ mod tests {
                     b = "bar";
                     c = 42;
                     d = 3.1415;
+                    f = 7;
                 };
             }"#,
         );
@@ -117,6 +120,8 @@ mod tests {
                     b: "bar".to_string(),
                     c: 42,
                     d: 3.1415,
+                    e: None,
+                    f: Some(7),
                 }
             },
         );
