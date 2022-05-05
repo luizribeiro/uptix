@@ -4,7 +4,7 @@ let
   helloWorldRS = pkgs.rustPlatform.buildRustPackage {
     pname = "hello-world-rs";
     version = "0.1.0";
-    src = pkgs.fetchFromGitHub (uptix.github {
+    src = pkgs.fetchFromGitHub (uptix.githubBranch {
       owner = "luizribeiro";
       repo = "hello-world-rs";
       branch = "main";

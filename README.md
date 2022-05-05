@@ -71,7 +71,7 @@ digest for the latest version of each dependency.
 ### GitHub
 
 For GitHub checkouts that are typically fetched with `fetchFromGitHub`, you
-can use `uptix.github` as follows:
+can use `uptix.githubBranch` as follows:
 
 ```nix
 { pkgs, uptix, stdenv, ... }:
@@ -79,7 +79,7 @@ can use `uptix.github` as follows:
 stdenv.mkDerivation {
   pname = "foo";
   # ...
-  src = pkgs.lib.fetchFromGitHub (uptix.github {
+  src = pkgs.lib.fetchFromGitHub (uptix.githubBranch {
     owner = "torvalds";
     repo = "linux";
     branch = "master";

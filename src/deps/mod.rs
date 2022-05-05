@@ -2,7 +2,7 @@ mod docker;
 mod github;
 
 use crate::deps::docker::Docker;
-use crate::deps::github::GitHub;
+use crate::deps::github::GitHubBranch;
 use async_trait::async_trait;
 use enum_as_inner::EnumAsInner;
 use erased_serde::Serialize;
@@ -12,7 +12,7 @@ use std::fs;
 #[derive(EnumAsInner, Debug)]
 pub enum Dependency {
     Docker(Docker),
-    GitHub(GitHub),
+    GitHubBranch(GitHubBranch),
 }
 
 #[async_trait]
@@ -25,7 +25,7 @@ impl Dependency {
     pub fn new(func: &str, node: &SyntaxNode) -> Result<Dependency, &'static str> {
         let dep = match func {
             "uptix.dockerImage" => Dependency::Docker(Docker::new(&node)?),
-            "uptix.github" => Dependency::GitHub(GitHub::new(&node)?),
+            "uptix.githubBranch" => Dependency::GitHubBranch(GitHubBranch::new(&node)?),
             _ => return Err("Unknown uptix function"),
         };
         return Ok(dep);
@@ -34,14 +34,14 @@ impl Dependency {
     pub fn key(&self) -> String {
         match self {
             Dependency::Docker(d) => d.key(),
-            Dependency::GitHub(d) => d.key(),
+            Dependency::GitHubBranch(d) => d.key(),
         }
     }
 
     pub async fn lock(&self) -> Result<Box<dyn Serialize>, &'static str> {
         match self {
             Dependency::Docker(d) => d.lock().await,
-            Dependency::GitHub(d) => d.lock().await,
+            Dependency::GitHubBranch(d) => d.lock().await,
         }
     }
 }

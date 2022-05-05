@@ -6,6 +6,6 @@ let
 in
 {
   dockerImage = name: "${name}@${lockFor name}";
-  github = { owner, repo, branch }:
+  githubBranch = { owner, repo, branch }:
     (lockFor "$GITHUB_BRANCH$:${owner}/${repo}:${branch}");
 }

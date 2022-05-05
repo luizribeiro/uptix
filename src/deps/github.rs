@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::process::Command;
 
 #[derive(Default, Serialize, Deserialize, PartialEq, Clone, Debug)]
-pub struct GitHub {
+pub struct GitHubBranch {
     owner: String,
     repo: String,
     branch: String,
@@ -15,11 +15,11 @@ pub struct GitHub {
     override_nix_sha256: Option<String>,
 }
 
-impl GitHub {
-    pub fn new(node: &SyntaxNode) -> Result<GitHub, &'static str> {
+impl GitHubBranch {
+    pub fn new(node: &SyntaxNode) -> Result<GitHubBranch, &'static str> {
         match util::from_attr_set(node) {
             Ok(r) => Ok(r),
-            _ => Err("Error while parsing arguments of uptix.github"),
+            _ => Err("Error while parsing arguments of uptix.githubBranch"),
         }
     }
 }
@@ -47,7 +47,7 @@ struct GitHubPrefetchInfo {
     sha256: String,
 }
 
-async fn fetch_github_branch_info(dependency: &GitHub) -> GitHubBranchInfo {
+async fn fetch_github_branch_info(dependency: &GitHubBranch) -> GitHubBranchInfo {
     let client = reqwest::Client::new();
     let url_as_str = format!(
         "{}://{}/repos/{}/{}/branches/{}",
@@ -76,7 +76,7 @@ async fn fetch_github_branch_info(dependency: &GitHub) -> GitHubBranchInfo {
     return serde_json::from_str(&response).unwrap();
 }
 
-fn compute_nix_sha256(dependency: &GitHub, rev: &str) -> String {
+fn compute_nix_sha256(dependency: &GitHubBranch, rev: &str) -> String {
     if let Some(overridden_nix_sha256) = &dependency.override_nix_sha256 {
         return overridden_nix_sha256.to_string();
     }
@@ -96,7 +96,7 @@ fn compute_nix_sha256(dependency: &GitHub, rev: &str) -> String {
 }
 
 #[async_trait]
-impl Lockable for GitHub {
+impl Lockable for GitHubBranch {
     fn key(&self) -> String {
         return format!(
             "$GITHUB_BRANCH$:{}/{}:{}",
@@ -118,7 +118,7 @@ impl Lockable for GitHub {
 
 #[cfg(test)]
 mod tests {
-    use super::GitHub;
+    use super::GitHubBranch;
     use crate::deps::collect_ast_dependencies;
     use crate::deps::Lockable;
     use serde_json::json;
@@ -127,7 +127,7 @@ mod tests {
     fn it_parses() {
         let ast = rnix::parse(
             r#"{
-                uptix = fetchFromGitHub (uptix.github {
+                uptix = fetchFromGitHub (uptix.githubBranch {
                     owner = "luizribeiro";
                     repo = "uptix";
                     branch = "main";
@@ -136,9 +136,9 @@ mod tests {
         );
         let dependencies: Vec<_> = collect_ast_dependencies(ast.node())
             .iter()
-            .map(|d| d.as_git_hub().unwrap().clone())
+            .map(|d| d.as_git_hub_branch().unwrap().clone())
             .collect();
-        let expected_dependencies = vec![GitHub {
+        let expected_dependencies = vec![GitHubBranch {
             owner: "luizribeiro".to_string(),
             repo: "uptix".to_string(),
             branch: "main".to_string(),
@@ -149,7 +149,7 @@ mod tests {
 
     #[test]
     fn it_has_a_key() {
-        let dependency = GitHub {
+        let dependency = GitHubBranch {
             owner: "luizribeiro".to_string(),
             repo: "uptix".to_string(),
             branch: "main".to_string(),
@@ -176,7 +176,7 @@ mod tests {
             )
             .create();
 
-        let dependency = GitHub {
+        let dependency = GitHubBranch {
             owner: "luizribeiro".to_string(),
             repo: "uptix".to_string(),
             branch: "main".to_string(),
