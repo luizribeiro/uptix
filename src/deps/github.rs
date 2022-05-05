@@ -70,6 +70,33 @@ struct GitHubPrefetchInfo {
     sha256: String,
 }
 
+async fn fetch_github_branch_info(dependency: &GitHub) -> GitHubBranchInfo {
+    let client = reqwest::Client::new();
+    let url_as_str = format!(
+        "{}://{}/repos/{}/{}/branches/{}",
+        dependency.override_scheme
+            .as_ref()
+            .unwrap_or(&"https".to_string()),
+        dependency.override_domain
+            .as_ref()
+            .unwrap_or(&"api.github.com".to_string()),
+        dependency.owner,
+        dependency.repo,
+        dependency.branch,
+    );
+    let url = reqwest::Url::parse(&url_as_str).unwrap();
+    let response = client
+        .request(reqwest::Method::GET, url)
+        .header(reqwest::header::USER_AGENT, "uptix/0.1.0")
+        .send()
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    return serde_json::from_str(&response).unwrap();
+}
+
 fn compute_nix_sha256(dependency: &GitHub, rev: &str) -> String {
     if let Some(overridden_nix_sha256) = &dependency.override_nix_sha256 {
         return overridden_nix_sha256.to_string();
@@ -99,31 +126,7 @@ impl Lockable for GitHub {
     }
 
     async fn lock(&self) -> Result<Box<dyn erased_serde::Serialize>, &'static str> {
-        let client = reqwest::Client::new();
-        let url_as_str = format!(
-            "{}://{}/repos/{}/{}/branches/{}",
-            self.override_scheme
-                .as_ref()
-                .unwrap_or(&"https".to_string()),
-            self.override_domain
-                .as_ref()
-                .unwrap_or(&"api.github.com".to_string()),
-            self.owner,
-            self.repo,
-            self.branch,
-        );
-        let url = reqwest::Url::parse(&url_as_str).unwrap();
-        let response = client
-            .request(reqwest::Method::GET, url)
-            .header(reqwest::header::USER_AGENT, "uptix/0.1.0")
-            .send()
-            .await
-            .unwrap()
-            .text()
-            .await
-            .unwrap();
-        let branch_info: GitHubBranchInfo = serde_json::from_str(&response).unwrap();
-        let rev = branch_info.commit.sha;
+        let rev = fetch_github_branch_info(self).await.commit.sha;
         let sha256 = compute_nix_sha256(self, &rev);
         return Ok(Box::new(GitHubLock {
             owner: self.owner.clone(),
