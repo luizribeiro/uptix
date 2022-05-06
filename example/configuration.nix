@@ -11,14 +11,19 @@ let
     });
     cargoSha256 = "sha256-p6vLLM6A16o8dKLwUfP/qf4crnzlgp4f+Vs0ocRChE4=";
   };
-  releasedHelloWorldRS = pkgs.rustPlatform.buildRustPackage {
-    name = "released-hello-world-rs";
-    src = pkgs.fetchFromGitHub (uptix.githubRelease {
-      owner = "luizribeiro";
-      repo = "hello-world-rs";
-    });
-    cargoSha256 = "sha256-VRMgCpkfkuZmkhgxP542kyjAPcBLiKLplQsKPvJPfhE=";
-  };
+  releasedHelloWorldRS =
+    let
+      release = uptix.githubRelease {
+        owner = "luizribeiro";
+        repo = "hello-world-rs";
+      };
+    in
+    pkgs.rustPlatform.buildRustPackage {
+      pname = "released-hello-world-rs";
+      version = uptix.version release;
+      src = pkgs.fetchFromGitHub release;
+      cargoSha256 = "sha256-QCh67x63vSgdDYg0I47hVqg+x4L2vU/shh3MJlO+sac=";
+    };
 in
 {
   imports = [ ./hardware-configuration.nix ];
