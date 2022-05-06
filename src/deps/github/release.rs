@@ -16,11 +16,8 @@ pub struct GitHubRelease {
 }
 
 impl GitHubRelease {
-    pub fn new(node: &SyntaxNode) -> Result<GitHubRelease, &'static str> {
-        match util::from_attr_set(node) {
-            Ok(r) => Ok(r),
-            _ => Err("Error while parsing arguments of uptix.githubRelease"),
-        }
+    pub fn new(node: &SyntaxNode) -> Result<GitHubRelease, UptixError> {
+        util::from_attr_set(node)
     }
 }
 

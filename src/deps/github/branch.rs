@@ -17,11 +17,8 @@ pub struct GitHubBranch {
 }
 
 impl GitHubBranch {
-    pub fn new(node: &SyntaxNode) -> Result<GitHubBranch, &'static str> {
-        match util::from_attr_set(node) {
-            Ok(r) => Ok(r),
-            _ => Err("Error while parsing arguments of uptix.githubBranch"),
-        }
+    pub fn new(node: &SyntaxNode) -> Result<GitHubBranch, UptixError> {
+        util::from_attr_set(node)
     }
 }
 

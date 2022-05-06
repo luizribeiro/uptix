@@ -25,16 +25,16 @@ lazy_static! {
 }
 
 impl Docker {
-    pub fn new(node: &SyntaxNode) -> Result<Docker, &'static str> {
+    pub fn new(node: &SyntaxNode) -> Result<Docker, UptixError> {
         if node.kind() != SyntaxKind::NODE_STRING {
-            return Err("Unexpected node");
+            return Err(UptixError::from("Unexpected node"));
         }
 
         let text = node.text().to_string();
         return Docker::from(text.as_str());
     }
 
-    fn from(text: &str) -> Result<Docker, &'static str> {
+    fn from(text: &str) -> Result<Docker, UptixError> {
         let caps = RE.captures(text).expect("Malformatted Docker image");
         let name = caps
             .get(1)
@@ -86,8 +86,12 @@ impl Lockable for Docker {
     async fn lock(&self) -> Result<Box<dyn Serialize>, UptixError> {
         return match self.latest_digest().await {
             Ok(Some(digest)) => Ok(Box::new(digest)),
-            Ok(None) => Err(UptixError::from("Could not find digest for image on registry")),
-            Err(_err) => Err(UptixError::from("Error while fetching digest from registry")),
+            Ok(None) => Err(UptixError::from(
+                "Could not find digest for image on registry",
+            )),
+            Err(_err) => Err(UptixError::from(
+                "Error while fetching digest from registry",
+            )),
         };
     }
 }
