@@ -61,7 +61,12 @@ async fn fetch_github_latest_release(
 #[async_trait]
 impl Lockable for GitHubRelease {
     fn key(&self) -> String {
-        return format!("$GITHUB_RELEASE$:{}/{}", self.owner, self.repo);
+        return format!(
+            "$GITHUB_RELEASE$:{}/{}${}",
+            self.owner,
+            self.repo,
+            github::flags(self.fetchSubmodules, self.deepClone, self.leaveDotGit)
+        );
     }
 
     async fn lock(&self) -> Result<Box<dyn erased_serde::Serialize>, Error> {
@@ -119,7 +124,7 @@ mod tests {
             repo: "uptix".to_string(),
             ..Default::default()
         };
-        assert_eq!(dependency.key(), "$GITHUB_RELEASE$:luizribeiro/uptix");
+        assert_eq!(dependency.key(), "$GITHUB_RELEASE$:luizribeiro/uptix$");
     }
 
     #[tokio::test]

@@ -67,8 +67,11 @@ async fn fetch_github_branch_info(dependency: &GitHubBranch) -> Result<GitHubBra
 impl Lockable for GitHubBranch {
     fn key(&self) -> String {
         return format!(
-            "$GITHUB_BRANCH$:{}/{}:{}",
-            self.owner, self.repo, self.branch,
+            "$GITHUB_BRANCH$:{}/{}:{}${}",
+            self.owner,
+            self.repo,
+            self.branch,
+            github::flags(self.fetchSubmodules, self.deepClone, self.leaveDotGit),
         );
     }
 
@@ -145,7 +148,7 @@ mod tests {
             branch: "main".to_string(),
             ..Default::default()
         };
-        assert_eq!(dependency.key(), "$GITHUB_BRANCH$:luizribeiro/uptix:main");
+        assert_eq!(dependency.key(), "$GITHUB_BRANCH$:luizribeiro/uptix:main$");
     }
 
     #[tokio::test]
