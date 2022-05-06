@@ -7,10 +7,14 @@ use rnix::SyntaxNode;
 use serde::{Deserialize, Serialize};
 
 #[derive(Default, Serialize, Deserialize, PartialEq, Clone, Debug)]
+#[allow(non_snake_case)]
 pub struct GitHubBranch {
     owner: String,
     repo: String,
     branch: String,
+    fetchSubmodules: Option<bool>,
+    deepClone: Option<bool>,
+    leaveDotGit: Option<bool>,
     override_scheme: Option<String>,
     override_domain: Option<String>,
     override_nix_sha256: Option<String>,
@@ -79,6 +83,9 @@ impl Lockable for GitHubBranch {
             repo: self.repo.clone(),
             rev,
             sha256,
+            fetchSubmodules: self.fetchSubmodules.unwrap_or(false),
+            deepClone: self.deepClone.unwrap_or(false),
+            leaveDotGit: self.leaveDotGit.unwrap_or(false),
         }));
     }
 }
@@ -99,6 +106,12 @@ mod tests {
                     repo = "uptix";
                     branch = "main";
                 });
+                uptixWithOptions = fetchFromGitHub (uptix.githubBranch {
+                    owner = "luizribeiro";
+                    repo = "uptix";
+                    branch = "main";
+                    fetchSubmodules = true;
+                });
             }"#,
         );
         let dependencies: Vec<_> = collect_ast_dependencies(ast.node())
@@ -106,12 +119,21 @@ mod tests {
             .iter()
             .map(|d| d.as_git_hub_branch().unwrap().clone())
             .collect();
-        let expected_dependencies = vec![GitHubBranch {
-            owner: "luizribeiro".to_string(),
-            repo: "uptix".to_string(),
-            branch: "main".to_string(),
-            ..Default::default()
-        }];
+        let expected_dependencies = vec![
+            GitHubBranch {
+                owner: "luizribeiro".to_string(),
+                repo: "uptix".to_string(),
+                branch: "main".to_string(),
+                ..Default::default()
+            },
+            GitHubBranch {
+                owner: "luizribeiro".to_string(),
+                repo: "uptix".to_string(),
+                branch: "main".to_string(),
+                fetchSubmodules: Some(true),
+                ..Default::default()
+            },
+        ];
         assert_eq!(dependencies, expected_dependencies);
     }
 
@@ -153,6 +175,7 @@ mod tests {
             override_nix_sha256: Some(
                 "1vxzg4wdjvfnc7fjqr9flza5y7gh69w0bpf7mhyf06ddcvq3p00j".to_string(),
             ),
+            ..Default::default()
         };
         let lock = dependency.lock().await.unwrap();
         let lock_value = serde_json::to_value(lock).unwrap();
@@ -164,6 +187,9 @@ mod tests {
                 "repo": "uptix",
                 "rev": "b28012d8b7f8ef54492c66f3a77074391e9818b9",
                 "sha256": "1vxzg4wdjvfnc7fjqr9flza5y7gh69w0bpf7mhyf06ddcvq3p00j",
+                "fetchSubmodules": false,
+                "deepClone": false,
+                "leaveDotGit": false,
             }),
         );
 

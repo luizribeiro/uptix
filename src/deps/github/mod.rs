@@ -6,11 +6,15 @@ use serde::{Deserialize, Serialize};
 use std::process::Command;
 
 #[derive(Serialize, Deserialize)]
+#[allow(non_snake_case)]
 pub struct GitHubLock {
     owner: String,
     repo: String,
     rev: String,
     sha256: String,
+    fetchSubmodules: bool,
+    deepClone: bool,
+    leaveDotGit: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

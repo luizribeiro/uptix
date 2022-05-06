@@ -7,9 +7,13 @@ use rnix::SyntaxNode;
 use serde::{Deserialize, Serialize};
 
 #[derive(Default, Serialize, Deserialize, PartialEq, Clone, Debug)]
+#[allow(non_snake_case)]
 pub struct GitHubRelease {
     owner: String,
     repo: String,
+    fetchSubmodules: Option<bool>,
+    deepClone: Option<bool>,
+    leaveDotGit: Option<bool>,
     override_scheme: Option<String>,
     override_domain: Option<String>,
     override_nix_sha256: Option<String>,
@@ -71,6 +75,9 @@ impl Lockable for GitHubRelease {
             repo: self.repo.clone(),
             rev,
             sha256,
+            fetchSubmodules: self.fetchSubmodules.unwrap_or(false),
+            deepClone: self.deepClone.unwrap_or(false),
+            leaveDotGit: self.leaveDotGit.unwrap_or(false),
         }));
     }
 }
@@ -139,6 +146,7 @@ mod tests {
             override_nix_sha256: Some(
                 "1vxzg4wdjvfnc7fjqr9flza5y7gh69w0bpf7mhyf06ddcvq3p00j".to_string(),
             ),
+            ..Default::default()
         };
         let lock = dependency.lock().await.unwrap();
         let lock_value = serde_json::to_value(lock).unwrap();
@@ -150,6 +158,9 @@ mod tests {
                 "repo": "uptix",
                 "rev": "v0.1.0",
                 "sha256": "1vxzg4wdjvfnc7fjqr9flza5y7gh69w0bpf7mhyf06ddcvq3p00j",
+                "fetchSubmodules": false,
+                "deepClone": false,
+                "leaveDotGit": false,
             }),
         );
 

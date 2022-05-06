@@ -56,6 +56,17 @@ fn value_from_nix(node: &SyntaxNode) -> Result<Value, Error> {
         };
     }
 
+    if node.kind() == SyntaxKind::NODE_IDENT {
+        return match node.text().to_string().as_str() {
+            "true" => Ok(serde_json::Value::Bool(true)),
+            "false" => Ok(serde_json::Value::Bool(false)),
+            identifier => Err(Error::NixParsingError(format!(
+                "Unexpected identifier {}",
+                identifier,
+            ))),
+        };
+    }
+
     if node.kind() != SyntaxKind::NODE_ATTR_SET {
         return Err(Error::NixParsingError(format!(
             "Expected attr set, found {:#?}",
