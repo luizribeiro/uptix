@@ -6,8 +6,10 @@ pub enum Error {
     RequestError(#[from] reqwest::Error),
     #[error("URL construction error")]
     URLConstructionError(#[from] url::ParseError),
-    #[error("JSON parsing error")]
+    #[error("JSON serialization error")]
     JSONParsingError(#[from] serde_json::Error),
+    #[error("I/O error")]
+    IOError(#[from] std::io::Error),
     #[error("usage error")]
     UsageError(String),
     #[error("Nix parsing error")]

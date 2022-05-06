@@ -17,7 +17,7 @@ async fn main() -> Result<(), Error> {
     println!("Found {} nix files", all_files.len());
 
     print!("Parsing files... ");
-    std::io::stdout().flush().unwrap();
+    std::io::stdout().flush()?;
     let all_dependencies: Vec<_> = all_files
         .iter()
         .map(|f| collect_file_dependencies(f.to_str().unwrap()).unwrap())
@@ -27,7 +27,7 @@ async fn main() -> Result<(), Error> {
     println!("Found {} uptix dependencies", all_dependencies.len());
 
     print!("Looking for updates... ");
-    std::io::stdout().flush().unwrap();
+    std::io::stdout().flush()?;
     let mut lock_file = BTreeMap::new();
     for dependency in all_dependencies {
         let lock = dependency.lock().await?;
@@ -36,7 +36,7 @@ async fn main() -> Result<(), Error> {
     println!("Done.");
 
     let mut file = fs::File::create("uptix.lock").expect("Error creating uptix.lock");
-    let json = serde_json::to_string_pretty(&lock_file).unwrap();
+    let json = serde_json::to_string_pretty(&lock_file)?;
     file.write_all(json.as_bytes())
         .expect("Error writing JSON to uptix.lock");
     println!("Wrote uptix.lock successfully");
