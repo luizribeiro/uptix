@@ -26,18 +26,15 @@ pub trait Lockable {
 
 impl Dependency {
     pub fn new(func: &str, node: &SyntaxNode) -> Result<Dependency, Error> {
-        let dep = match func {
-            "uptix.dockerImage" => Dependency::Docker(Docker::new(&node)?),
-            "uptix.githubBranch" => Dependency::GitHubBranch(GitHubBranch::new(&node)?),
-            "uptix.githubRelease" => Dependency::GitHubRelease(GitHubRelease::new(&node)?),
-            _ => {
-                return Err(Error::UsageError(format!(
-                    "Unknown uptix function {}",
-                    func
-                )));
-            }
-        };
-        return Ok(dep);
+        match func {
+            "uptix.dockerImage" => Ok(Dependency::Docker(Docker::new(&node)?)),
+            "uptix.githubBranch" => Ok(Dependency::GitHubBranch(GitHubBranch::new(&node)?)),
+            "uptix.githubRelease" => Ok(Dependency::GitHubRelease(GitHubRelease::new(&node)?)),
+            _ => Err(Error::UsageError(format!(
+                "Unknown uptix function {}",
+                func
+            ))),
+        }
     }
 
     pub fn key(&self) -> String {

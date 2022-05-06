@@ -86,13 +86,12 @@ impl Lockable for Docker {
     }
 
     async fn lock(&self) -> Result<Box<dyn Serialize>, Error> {
-        return match self.latest_digest().await {
-            Ok(Some(digest)) => Ok(Box::new(digest)),
-            Ok(None) => Err(Error::StringError(format!(
+        return match self.latest_digest().await? {
+            Some(digest) => Ok(Box::new(digest)),
+            None => Err(Error::StringError(format!(
                 "Could not find digest for image {} on registry",
                 self.name,
             ))),
-            Err(_err) => Err(Error::from("Error while fetching digest from registry")),
         };
     }
 }
