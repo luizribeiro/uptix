@@ -30,11 +30,11 @@
         "utils": "utils"
       },
       "locked": {
-        "lastModified": 1651807547,
-        "narHash": "sha256-5H88osz0J76g0AyAISjrbF0gMUkzK2tKES/hvx0CYnE=",
+        "lastModified": 1651875444,
+        "narHash": "sha256-cEyxxW1AFM1DFrmQCjkD+nEaEY5OmQunZaC7BHIrvO0=",
         "owner": "luizribeiro",
         "repo": "uptix",
-        "rev": "b5b4fa684536ddc09dd5bcebc49f8092a8218ab5",
+        "rev": "d7c620b4cfd801795dc6cf980736c44430080b14",
         "type": "github"
       },
       "original": {

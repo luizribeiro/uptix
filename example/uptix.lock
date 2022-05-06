@@ -1,15 +1,21 @@
 {
-  "$GITHUB_BRANCH$:luizribeiro/hello-world-rs:main": {
+  "$GITHUB_BRANCH$:luizribeiro/hello-world-rs:main$": {
     "owner": "luizribeiro",
     "repo": "hello-world-rs",
     "rev": "69a9b5193833ea3c1efc390b1bba04a7e1862e78",
-    "sha256": "0fqn3c0zpg5qnswxng18px3h5afhrh7jwr61vyzpgj3ap4knbb4v"
+    "sha256": "0fqn3c0zpg5qnswxng18px3h5afhrh7jwr61vyzpgj3ap4knbb4v",
+    "fetchSubmodules": false,
+    "deepClone": false,
+    "leaveDotGit": false
   },
-  "$GITHUB_RELEASE$:luizribeiro/hello-world-rs": {
+  "$GITHUB_RELEASE$:luizribeiro/hello-world-rs$": {
     "owner": "luizribeiro",
     "repo": "hello-world-rs",
     "rev": "v0.1.0",
-    "sha256": "0fqn3c0zpg5qnswxng18px3h5afhrh7jwr61vyzpgj3ap4knbb4v"
+    "sha256": "0fqn3c0zpg5qnswxng18px3h5afhrh7jwr61vyzpgj3ap4knbb4v",
+    "fetchSubmodules": false,
+    "deepClone": false,
+    "leaveDotGit": false
   },
-  "homeassistant/home-assistant:stable": "sha256:f67ca5ad8a36bc2f6a5ae1056910d1a10ecb382a84c559c81e365e8c276567d9"
+  "homeassistant/home-assistant:stable": "sha256:c32ef15977e203f4e32f9873b4c9c0439fa885e09c942e3b0f145a9741831731"
 }
