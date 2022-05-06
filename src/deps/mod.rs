@@ -75,6 +75,10 @@ fn collect_ast_dependencies(node: SyntaxNode) -> Result<Vec<Dependency>, Error> 
     if !func.starts_with("uptix.") {
         return Ok(vec![]);
     }
+    match func.as_str() {
+        "uptix.version" => return Ok(vec![]),
+        _ => (),
+    }
 
     let value_node = node.next_sibling();
     if value_node.is_none() {
@@ -94,6 +98,7 @@ mod tests {
         let ast = rnix::parse(
             r#"{
                 uptixModule = uptix.nixosModules.uptix;
+                version = uptix.version release;
             }"#,
         );
         let dependencies: Vec<_> = collect_ast_dependencies(ast.node()).unwrap();
