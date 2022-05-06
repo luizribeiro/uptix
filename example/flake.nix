@@ -1,6 +1,9 @@
 {
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/master";
-  inputs.uptix.url = "github:luizribeiro/uptix";
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/master";
+    uptix.url = "github:luizribeiro/uptix";
+    uptix.inputs.nixpkgs.follows = "nixpkgs";
+  };
 
   outputs = { nixpkgs, uptix, ... }:
     let
