@@ -17,9 +17,3 @@ pub enum Error {
     #[error("unknown error")]
     StringError(String),
 }
-
-impl From<&str> for Error {
-    fn from(s: &str) -> Self {
-        return Error::StringError(s.to_string());
-    }
-}
