@@ -1,5 +1,5 @@
 #[derive(thiserror::Error, Debug)]
-pub enum UptixError {
+pub enum Error {
     #[error("registry error")]
     RegistryError(#[from] dkregistry::errors::Error),
     #[error("HTTP request error")]
@@ -16,8 +16,8 @@ pub enum UptixError {
     StringError(String),
 }
 
-impl From<&str> for UptixError {
+impl From<&str> for Error {
     fn from(s: &str) -> Self {
-        return UptixError::StringError(s.to_string());
+        return Error::StringError(s.to_string());
     }
 }

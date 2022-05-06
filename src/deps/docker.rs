@@ -1,5 +1,5 @@
 use crate::deps::Lockable;
-use crate::error::UptixError;
+use crate::error::Error;
 use async_trait::async_trait;
 use dkregistry::v2::Client;
 use erased_serde::Serialize;
@@ -24,9 +24,9 @@ lazy_static! {
 }
 
 impl Docker {
-    pub fn new(node: &SyntaxNode) -> Result<Docker, UptixError> {
+    pub fn new(node: &SyntaxNode) -> Result<Docker, Error> {
         if node.kind() != SyntaxKind::NODE_STRING {
-            return Err(UptixError::UsageError(format!(
+            return Err(Error::UsageError(format!(
                 "Expected string as parameter to uptix.dockerImage, got: {:#?}",
                 node.kind()
             )));
@@ -36,7 +36,7 @@ impl Docker {
         return Docker::from(text.as_str());
     }
 
-    fn from(text: &str) -> Result<Docker, UptixError> {
+    fn from(text: &str) -> Result<Docker, Error> {
         let caps = RE.captures(text).expect("Malformatted Docker image");
         let name = caps
             .get(1)
@@ -63,7 +63,7 @@ impl Docker {
         });
     }
 
-    async fn latest_digest(&self) -> Result<Option<String>, UptixError> {
+    async fn latest_digest(&self) -> Result<Option<String>, Error> {
         let login_scope = format!("repository:{}:pull", self.image);
         let scopes = vec![login_scope.as_str()];
         let dclient = Client::configure()
@@ -85,16 +85,14 @@ impl Lockable for Docker {
         return self.name.to_string();
     }
 
-    async fn lock(&self) -> Result<Box<dyn Serialize>, UptixError> {
+    async fn lock(&self) -> Result<Box<dyn Serialize>, Error> {
         return match self.latest_digest().await {
             Ok(Some(digest)) => Ok(Box::new(digest)),
-            Ok(None) => Err(UptixError::StringError(format!(
+            Ok(None) => Err(Error::StringError(format!(
                 "Could not find digest for image {} on registry",
                 self.name,
             ))),
-            Err(_err) => Err(UptixError::from(
-                "Error while fetching digest from registry",
-            )),
+            Err(_err) => Err(Error::from("Error while fetching digest from registry")),
         };
     }
 }

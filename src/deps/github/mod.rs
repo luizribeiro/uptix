@@ -1,7 +1,7 @@
 pub mod branch;
 pub mod release;
 
-use crate::error::UptixError;
+use crate::error::Error;
 use serde::{Deserialize, Serialize};
 use std::process::Command;
 
@@ -18,7 +18,7 @@ struct GitHubPrefetchInfo {
     sha256: String,
 }
 
-fn compute_nix_sha256(owner: &str, repo: &str, rev: &str) -> Result<String, UptixError> {
+fn compute_nix_sha256(owner: &str, repo: &str, rev: &str) -> Result<String, Error> {
     let output = Command::new("nix-prefetch-git")
         .arg("--quiet")
         .arg("--rev")

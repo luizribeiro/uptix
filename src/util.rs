@@ -1,4 +1,4 @@
-use crate::error::UptixError;
+use crate::error::Error;
 use rnix::{SyntaxKind, SyntaxNode};
 use serde_json::{Map, Value};
 use std::path::PathBuf;
@@ -30,7 +30,7 @@ pub fn user_agent() -> String {
     return format!("uptix/{}", env!("CARGO_PKG_VERSION"));
 }
 
-fn value_from_nix(node: &SyntaxNode) -> Result<Value, UptixError> {
+fn value_from_nix(node: &SyntaxNode) -> Result<Value, Error> {
     if node.kind() == SyntaxKind::NODE_STRING {
         let mut w = node.text().to_string();
         w.pop();
@@ -49,7 +49,7 @@ fn value_from_nix(node: &SyntaxNode) -> Result<Value, UptixError> {
                 let v = token.text().parse::<f32>().unwrap();
                 Ok(serde_json::Value::from(v))
             }
-            _ => Err(UptixError::NixParsingError(format!(
+            _ => Err(Error::NixParsingError(format!(
                 "Unexpected token kind {:#?}",
                 token.kind()
             ))),
@@ -57,7 +57,7 @@ fn value_from_nix(node: &SyntaxNode) -> Result<Value, UptixError> {
     }
 
     if node.kind() != SyntaxKind::NODE_ATTR_SET {
-        return Err(UptixError::NixParsingError(format!(
+        return Err(Error::NixParsingError(format!(
             "Expected attr set, found {:#?}",
             node.kind()
         )));
@@ -66,7 +66,7 @@ fn value_from_nix(node: &SyntaxNode) -> Result<Value, UptixError> {
     let mut attrs: Map<String, serde_json::Value> = Map::new();
     for child in node.children() {
         if child.kind() != SyntaxKind::NODE_KEY_VALUE {
-            return Err(UptixError::NixParsingError(format!(
+            return Err(Error::NixParsingError(format!(
                 "Expected key/value pair, got {:#?}",
                 child.kind()
             )));
@@ -79,7 +79,7 @@ fn value_from_nix(node: &SyntaxNode) -> Result<Value, UptixError> {
     return Ok(Value::Object(attrs));
 }
 
-pub fn from_attr_set<T>(node: &SyntaxNode) -> Result<T, UptixError>
+pub fn from_attr_set<T>(node: &SyntaxNode) -> Result<T, Error>
 where
     T: serde::de::DeserializeOwned,
 {

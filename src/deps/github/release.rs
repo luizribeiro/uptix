@@ -1,6 +1,6 @@
 use crate::deps::github;
 use crate::deps::Lockable;
-use crate::error::UptixError;
+use crate::error::Error;
 use crate::util;
 use async_trait::async_trait;
 use rnix::SyntaxNode;
@@ -16,7 +16,7 @@ pub struct GitHubRelease {
 }
 
 impl GitHubRelease {
-    pub fn new(node: &SyntaxNode) -> Result<GitHubRelease, UptixError> {
+    pub fn new(node: &SyntaxNode) -> Result<GitHubRelease, Error> {
         util::from_attr_set(node)
     }
 }
@@ -26,7 +26,9 @@ struct GitHubLatestReleaseInfo {
     tag_name: String,
 }
 
-async fn fetch_github_latest_release(dependency: &GitHubRelease) -> Result<GitHubLatestReleaseInfo, UptixError> {
+async fn fetch_github_latest_release(
+    dependency: &GitHubRelease,
+) -> Result<GitHubLatestReleaseInfo, Error> {
     let client = reqwest::Client::new();
     let url_as_str = format!(
         "{}://{}/repos/{}/{}/releases/latest",
@@ -58,7 +60,7 @@ impl Lockable for GitHubRelease {
         return format!("$GITHUB_RELEASE$:{}/{}", self.owner, self.repo);
     }
 
-    async fn lock(&self) -> Result<Box<dyn erased_serde::Serialize>, UptixError> {
+    async fn lock(&self) -> Result<Box<dyn erased_serde::Serialize>, Error> {
         let rev = fetch_github_latest_release(self).await?.tag_name;
         let sha256 = match &self.override_nix_sha256 {
             Some(s) => s.to_string(),

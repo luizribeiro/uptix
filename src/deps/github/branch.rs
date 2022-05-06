@@ -1,6 +1,6 @@
 use crate::deps::github;
 use crate::deps::Lockable;
-use crate::error::UptixError;
+use crate::error::Error;
 use crate::util;
 use async_trait::async_trait;
 use rnix::SyntaxNode;
@@ -17,7 +17,7 @@ pub struct GitHubBranch {
 }
 
 impl GitHubBranch {
-    pub fn new(node: &SyntaxNode) -> Result<GitHubBranch, UptixError> {
+    pub fn new(node: &SyntaxNode) -> Result<GitHubBranch, Error> {
         util::from_attr_set(node)
     }
 }
@@ -32,7 +32,7 @@ struct GitHubBranchInfo {
     commit: GitHubCommitInfo,
 }
 
-async fn fetch_github_branch_info(dependency: &GitHubBranch) -> Result<GitHubBranchInfo, UptixError> {
+async fn fetch_github_branch_info(dependency: &GitHubBranch) -> Result<GitHubBranchInfo, Error> {
     let client = reqwest::Client::new();
     let url_as_str = format!(
         "{}://{}/repos/{}/{}/branches/{}",
@@ -68,7 +68,7 @@ impl Lockable for GitHubBranch {
         );
     }
 
-    async fn lock(&self) -> Result<Box<dyn erased_serde::Serialize>, UptixError> {
+    async fn lock(&self) -> Result<Box<dyn erased_serde::Serialize>, Error> {
         let rev = fetch_github_branch_info(self).await?.commit.sha;
         let sha256 = match &self.override_nix_sha256 {
             Some(s) => s.to_string(),

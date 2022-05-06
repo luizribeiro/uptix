@@ -4,7 +4,7 @@ mod github;
 use crate::deps::docker::Docker;
 use crate::deps::github::branch::GitHubBranch;
 use crate::deps::github::release::GitHubRelease;
-use crate::error::UptixError;
+use crate::error::Error;
 use async_trait::async_trait;
 use enum_as_inner::EnumAsInner;
 use erased_serde::Serialize;
@@ -21,17 +21,17 @@ pub enum Dependency {
 #[async_trait]
 pub trait Lockable {
     fn key(&self) -> String;
-    async fn lock(&self) -> Result<Box<dyn Serialize>, UptixError>;
+    async fn lock(&self) -> Result<Box<dyn Serialize>, Error>;
 }
 
 impl Dependency {
-    pub fn new(func: &str, node: &SyntaxNode) -> Result<Dependency, UptixError> {
+    pub fn new(func: &str, node: &SyntaxNode) -> Result<Dependency, Error> {
         let dep = match func {
             "uptix.dockerImage" => Dependency::Docker(Docker::new(&node)?),
             "uptix.githubBranch" => Dependency::GitHubBranch(GitHubBranch::new(&node)?),
             "uptix.githubRelease" => Dependency::GitHubRelease(GitHubRelease::new(&node)?),
             _ => {
-                return Err(UptixError::UsageError(format!(
+                return Err(Error::UsageError(format!(
                     "Unknown uptix function {}",
                     func
                 )));
@@ -48,7 +48,7 @@ impl Dependency {
         }
     }
 
-    pub async fn lock(&self) -> Result<Box<dyn Serialize>, UptixError> {
+    pub async fn lock(&self) -> Result<Box<dyn Serialize>, Error> {
         match self {
             Dependency::Docker(d) => d.lock().await,
             Dependency::GitHubBranch(d) => d.lock().await,
@@ -57,13 +57,13 @@ impl Dependency {
     }
 }
 
-pub fn collect_file_dependencies(file_path: &str) -> Result<Vec<Dependency>, UptixError> {
+pub fn collect_file_dependencies(file_path: &str) -> Result<Vec<Dependency>, Error> {
     let content = fs::read_to_string(file_path).unwrap();
     let ast = rnix::parse(&content);
     return collect_ast_dependencies(ast.node());
 }
 
-fn collect_ast_dependencies(node: SyntaxNode) -> Result<Vec<Dependency>, UptixError> {
+fn collect_ast_dependencies(node: SyntaxNode) -> Result<Vec<Dependency>, Error> {
     if node.kind() != SyntaxKind::NODE_SELECT {
         return node.children().map(collect_ast_dependencies).try_fold(
             Vec::new(),
