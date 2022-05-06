@@ -76,7 +76,7 @@ fn collect_ast_dependencies(node: SyntaxNode) -> Result<Vec<Dependency>, Error> 
         return Ok(vec![]);
     }
     match func.as_str() {
-        "uptix.version" => return Ok(vec![]),
+        "uptix.version" | "uptix.nixosModules.uptix" => return Ok(vec![]),
         _ => (),
     }
 
@@ -97,7 +97,7 @@ mod tests {
     fn invalid_uptix_function() {
         let ast = rnix::parse(
             r#"{
-                uptixModule = uptix.nixosModules.uptix;
+                uptixModule = uptix.nixosModules.uptix ./uptix.lock;
                 version = uptix.version release;
             }"#,
         );
