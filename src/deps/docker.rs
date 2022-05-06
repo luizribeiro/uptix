@@ -106,6 +106,7 @@ mod tests {
             }"#,
         );
         let dependencies: Vec<_> = collect_ast_dependencies(ast.node())
+            .unwrap()
             .iter()
             .map(|d| d.as_docker().unwrap().clone())
             .collect();

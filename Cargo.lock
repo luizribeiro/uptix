@@ -1551,6 +1551,7 @@ dependencies = [
  "rnix",
  "serde",
  "serde_json",
+ "thiserror",
  "tokio",
  "walkdir",
 ]

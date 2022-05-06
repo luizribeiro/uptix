@@ -4,13 +4,14 @@ mod github;
 use crate::deps::docker::Docker;
 use crate::deps::github::branch::GitHubBranch;
 use crate::deps::github::release::GitHubRelease;
+use crate::error::UptixError;
 use async_trait::async_trait;
 use enum_as_inner::EnumAsInner;
 use erased_serde::Serialize;
 use rnix::{SyntaxKind, SyntaxNode};
 use std::fs;
 
-#[derive(EnumAsInner, Debug)]
+#[derive(EnumAsInner, Clone, Debug)]
 pub enum Dependency {
     Docker(Docker),
     GitHubBranch(GitHubBranch),
@@ -24,12 +25,12 @@ pub trait Lockable {
 }
 
 impl Dependency {
-    pub fn new(func: &str, node: &SyntaxNode) -> Result<Dependency, &'static str> {
+    pub fn new(func: &str, node: &SyntaxNode) -> Result<Dependency, UptixError> {
         let dep = match func {
             "uptix.dockerImage" => Dependency::Docker(Docker::new(&node)?),
             "uptix.githubBranch" => Dependency::GitHubBranch(GitHubBranch::new(&node)?),
             "uptix.githubRelease" => Dependency::GitHubRelease(GitHubRelease::new(&node)?),
-            _ => return Err("Unknown uptix function"),
+            _ => return Err(UptixError::from("Unknown uptix function")),
         };
         return Ok(dep);
     }
@@ -51,36 +52,35 @@ impl Dependency {
     }
 }
 
-pub fn collect_file_dependencies(file_path: &str) -> Vec<Dependency> {
+pub fn collect_file_dependencies(file_path: &str) -> Result<Vec<Dependency>, UptixError> {
     let content = fs::read_to_string(file_path).unwrap();
     let ast = rnix::parse(&content);
     return collect_ast_dependencies(ast.node());
 }
 
-fn collect_ast_dependencies(node: SyntaxNode) -> Vec<Dependency> {
+fn collect_ast_dependencies(node: SyntaxNode) -> Result<Vec<Dependency>, UptixError> {
     if node.kind() != SyntaxKind::NODE_SELECT {
-        return node
-            .children()
-            .map(|c| collect_ast_dependencies(c))
-            .flatten()
-            .collect();
+        return node.children().map(collect_ast_dependencies).try_fold(
+            Vec::new(),
+            |mut acc, next| {
+                acc.extend_from_slice(&next?);
+                Ok(acc)
+            },
+        );
     }
 
     let func = node.text().to_string();
     if !func.starts_with("uptix.") {
-        return vec![];
+        return Ok(vec![]);
     }
 
     let value_node = node.next_sibling();
     if value_node.is_none() {
-        return vec![];
+        return Ok(vec![]);
     }
 
-    let dependency = match <Dependency>::new(&func, &value_node.unwrap()) {
-        Ok(d) => d,
-        Err(_) => return vec![],
-    };
-    return vec![dependency];
+    let dependency = <Dependency>::new(&func, &value_node.unwrap())?;
+    return Ok(vec![dependency]);
 }
 
 #[cfg(test)]
@@ -94,7 +94,7 @@ mod tests {
                 uptixModule = uptix.nixosModules.uptix;
             }"#,
         );
-        let dependencies: Vec<_> = collect_ast_dependencies(ast.node());
+        let dependencies: Vec<_> = collect_ast_dependencies(ast.node()).unwrap();
         assert_eq!(dependencies.len(), 0);
     }
 }

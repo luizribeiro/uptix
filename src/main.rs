@@ -1,4 +1,5 @@
 mod deps;
+mod error;
 mod util;
 
 #[macro_use]
@@ -18,7 +19,7 @@ async fn main() -> Result<(), &'static str> {
     std::io::stdout().flush().unwrap();
     let all_dependencies: Vec<_> = all_files
         .iter()
-        .map(|f| collect_file_dependencies(f.to_str().unwrap()))
+        .map(|f| collect_file_dependencies(f.to_str().unwrap()).unwrap())
         .flatten()
         .collect();
     println!("Done.");
