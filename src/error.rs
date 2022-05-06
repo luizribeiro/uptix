@@ -1,7 +1,7 @@
-use thiserror::Error;
-
-#[derive(Error, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum UptixError {
+    #[error("registry error")]
+    RegistryError(#[from] dkregistry::errors::Error),
     #[error("error")]
     StringError(String),
 }

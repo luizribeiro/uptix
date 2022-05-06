@@ -1,7 +1,6 @@
 use crate::deps::Lockable;
 use crate::error::UptixError;
 use async_trait::async_trait;
-use dkregistry::errors::Error as RegistryError;
 use dkregistry::v2::Client;
 use erased_serde::Serialize;
 use regex::Regex;
@@ -64,7 +63,7 @@ impl Docker {
         });
     }
 
-    async fn latest_digest(&self) -> Result<Option<String>, RegistryError> {
+    async fn latest_digest(&self) -> Result<Option<String>, UptixError> {
         let login_scope = format!("repository:{}:pull", self.image);
         let scopes = vec![login_scope.as_str()];
         let dclient = Client::configure()
