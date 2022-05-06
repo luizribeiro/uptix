@@ -5,7 +5,7 @@ with builtins;
 let
   lockFor = key: (importJSON lockFile).${key};
   gitFlag = s: v: if v then s else "";
-  gitFlags = { fetchSubmodules ? false, deepClone ? false, leaveDotGit ? false }:
+  gitFlags = { fetchSubmodules ? false, deepClone ? false, leaveDotGit ? false, ... }:
     concatStringsSep "" [
       (gitFlag "f" fetchSubmodules)
       (gitFlag "d" deepClone)
