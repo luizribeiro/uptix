@@ -6,12 +6,13 @@ mod util;
 extern crate lazy_static;
 
 use crate::deps::collect_file_dependencies;
+use crate::error::UptixError;
 use std::collections::BTreeMap;
 use std::fs;
 use std::io::Write;
 
 #[tokio::main]
-async fn main() -> Result<(), &'static str> {
+async fn main() -> Result<(), UptixError> {
     let all_files = util::discover_nix_files(".");
     println!("Found {} nix files", all_files.len());
 

@@ -1,5 +1,6 @@
 use crate::deps::github;
 use crate::deps::Lockable;
+use crate::error::UptixError;
 use crate::util;
 use async_trait::async_trait;
 use rnix::SyntaxNode;
@@ -72,7 +73,7 @@ impl Lockable for GitHubBranch {
         );
     }
 
-    async fn lock(&self) -> Result<Box<dyn erased_serde::Serialize>, &'static str> {
+    async fn lock(&self) -> Result<Box<dyn erased_serde::Serialize>, UptixError> {
         let rev = fetch_github_branch_info(self).await.commit.sha;
         let sha256 = match &self.override_nix_sha256 {
             Some(s) => s.to_string(),

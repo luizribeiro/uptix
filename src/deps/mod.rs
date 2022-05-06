@@ -21,7 +21,7 @@ pub enum Dependency {
 #[async_trait]
 pub trait Lockable {
     fn key(&self) -> String;
-    async fn lock(&self) -> Result<Box<dyn Serialize>, &'static str>;
+    async fn lock(&self) -> Result<Box<dyn Serialize>, UptixError>;
 }
 
 impl Dependency {
@@ -43,7 +43,7 @@ impl Dependency {
         }
     }
 
-    pub async fn lock(&self) -> Result<Box<dyn Serialize>, &'static str> {
+    pub async fn lock(&self) -> Result<Box<dyn Serialize>, UptixError> {
         match self {
             Dependency::Docker(d) => d.lock().await,
             Dependency::GitHubBranch(d) => d.lock().await,
