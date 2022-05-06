@@ -74,7 +74,7 @@ impl Lockable for GitHubBranch {
         let rev = fetch_github_branch_info(self).await.commit.sha;
         let sha256 = match &self.override_nix_sha256 {
             Some(s) => s.to_string(),
-            None => github::compute_nix_sha256(&self.owner, &self.repo, &rev),
+            None => github::compute_nix_sha256(&self.owner, &self.repo, &rev)?,
         };
         return Ok(Box::new(github::GitHubLock {
             owner: self.owner.clone(),
