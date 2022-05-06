@@ -31,7 +31,7 @@ impl Dependency {
             "uptix.githubBranch" => Dependency::GitHubBranch(GitHubBranch::new(&node)?),
             "uptix.githubRelease" => Dependency::GitHubRelease(GitHubRelease::new(&node)?),
             _ => {
-                return Err(UptixError::StringError(format!(
+                return Err(UptixError::UsageError(format!(
                     "Unknown uptix function {}",
                     func
                 )));

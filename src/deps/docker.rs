@@ -26,7 +26,7 @@ lazy_static! {
 impl Docker {
     pub fn new(node: &SyntaxNode) -> Result<Docker, UptixError> {
         if node.kind() != SyntaxKind::NODE_STRING {
-            return Err(UptixError::StringError(format!(
+            return Err(UptixError::UsageError(format!(
                 "Expected string as parameter to uptix.dockerImage, got: {:#?}",
                 node.kind()
             )));

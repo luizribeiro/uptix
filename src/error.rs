@@ -8,7 +8,11 @@ pub enum UptixError {
     URLConstructionError(#[from] url::ParseError),
     #[error("JSON parsing error")]
     JSONParsingError(#[from] serde_json::Error),
-    #[error("error")]
+    #[error("usage error")]
+    UsageError(String),
+    #[error("Nix parsing error")]
+    NixParsingError(String),
+    #[error("unknown error")]
     StringError(String),
 }
 
