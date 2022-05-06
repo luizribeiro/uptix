@@ -59,10 +59,7 @@ async fn fetch_github_latest_release(dependency: &GitHubRelease) -> GitHubLatest
 #[async_trait]
 impl Lockable for GitHubRelease {
     fn key(&self) -> String {
-        return format!(
-            "$GITHUB_RELEASE$:{}/{}",
-            self.owner, self.repo,
-        );
+        return format!("$GITHUB_RELEASE$:{}/{}", self.owner, self.repo);
     }
 
     async fn lock(&self) -> Result<Box<dyn erased_serde::Serialize>, &'static str> {
