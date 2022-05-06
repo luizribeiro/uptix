@@ -2,6 +2,10 @@
 pub enum UptixError {
     #[error("registry error")]
     RegistryError(#[from] dkregistry::errors::Error),
+    #[error("HTTP request error")]
+    RequestError(#[from] reqwest::Error),
+    #[error("URL construction error")]
+    URLConstructionError(#[from] url::ParseError),
     #[error("JSON parsing error")]
     JSONParsingError(#[from] serde_json::Error),
     #[error("error")]

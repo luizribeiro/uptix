@@ -26,7 +26,7 @@ struct GitHubLatestReleaseInfo {
     tag_name: String,
 }
 
-async fn fetch_github_latest_release(dependency: &GitHubRelease) -> GitHubLatestReleaseInfo {
+async fn fetch_github_latest_release(dependency: &GitHubRelease) -> Result<GitHubLatestReleaseInfo, UptixError> {
     let client = reqwest::Client::new();
     let url_as_str = format!(
         "{}://{}/repos/{}/{}/releases/latest",
@@ -41,17 +41,15 @@ async fn fetch_github_latest_release(dependency: &GitHubRelease) -> GitHubLatest
         dependency.owner,
         dependency.repo,
     );
-    let url = reqwest::Url::parse(&url_as_str).unwrap();
+    let url = reqwest::Url::parse(&url_as_str)?;
     let response = client
         .request(reqwest::Method::GET, url)
         .header(reqwest::header::USER_AGENT, util::user_agent())
         .send()
-        .await
-        .unwrap()
+        .await?
         .text()
-        .await
-        .unwrap();
-    return serde_json::from_str(&response).unwrap();
+        .await?;
+    return Ok(serde_json::from_str(&response)?);
 }
 
 #[async_trait]
@@ -61,7 +59,7 @@ impl Lockable for GitHubRelease {
     }
 
     async fn lock(&self) -> Result<Box<dyn erased_serde::Serialize>, UptixError> {
-        let rev = fetch_github_latest_release(self).await.tag_name;
+        let rev = fetch_github_latest_release(self).await?.tag_name;
         let sha256 = match &self.override_nix_sha256 {
             Some(s) => s.to_string(),
             None => github::compute_nix_sha256(&self.owner, &self.repo, &rev)?,

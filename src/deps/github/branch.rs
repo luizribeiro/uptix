@@ -32,7 +32,7 @@ struct GitHubBranchInfo {
     commit: GitHubCommitInfo,
 }
 
-async fn fetch_github_branch_info(dependency: &GitHubBranch) -> GitHubBranchInfo {
+async fn fetch_github_branch_info(dependency: &GitHubBranch) -> Result<GitHubBranchInfo, UptixError> {
     let client = reqwest::Client::new();
     let url_as_str = format!(
         "{}://{}/repos/{}/{}/branches/{}",
@@ -53,12 +53,10 @@ async fn fetch_github_branch_info(dependency: &GitHubBranch) -> GitHubBranchInfo
         .request(reqwest::Method::GET, url)
         .header(reqwest::header::USER_AGENT, util::user_agent())
         .send()
-        .await
-        .unwrap()
+        .await?
         .text()
-        .await
-        .unwrap();
-    return serde_json::from_str(&response).unwrap();
+        .await?;
+    return Ok(serde_json::from_str(&response)?);
 }
 
 #[async_trait]
@@ -71,7 +69,7 @@ impl Lockable for GitHubBranch {
     }
 
     async fn lock(&self) -> Result<Box<dyn erased_serde::Serialize>, UptixError> {
-        let rev = fetch_github_branch_info(self).await.commit.sha;
+        let rev = fetch_github_branch_info(self).await?.commit.sha;
         let sha256 = match &self.override_nix_sha256 {
             Some(s) => s.to_string(),
             None => github::compute_nix_sha256(&self.owner, &self.repo, &rev)?,
