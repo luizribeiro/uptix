@@ -49,18 +49,27 @@ fn value_from_nix(node: &SyntaxNode) -> Result<Value, UptixError> {
                 let v = token.text().parse::<f32>().unwrap();
                 Ok(serde_json::Value::from(v))
             }
-            _ => Err(UptixError::from("Unexpected token type")),
+            _ => Err(UptixError::StringError(format!(
+                "Unexpected token kind {:#?}",
+                token.kind()
+            ))),
         };
     }
 
     if node.kind() != SyntaxKind::NODE_ATTR_SET {
-        return Err(UptixError::from("Unexpected node"));
+        return Err(UptixError::StringError(format!(
+            "Expected attr set, found {:#?}",
+            node.kind()
+        )));
     }
 
     let mut attrs: Map<String, serde_json::Value> = Map::new();
     for child in node.children() {
         if child.kind() != SyntaxKind::NODE_KEY_VALUE {
-            return Err(UptixError::from("Unexpected node, expected key value"));
+            return Err(UptixError::StringError(format!(
+                "Expected key/value pair, got {:#?}",
+                child.kind()
+            )));
         }
         let key = child.first_child().unwrap();
         let value = key.next_sibling().unwrap();

@@ -30,7 +30,12 @@ impl Dependency {
             "uptix.dockerImage" => Dependency::Docker(Docker::new(&node)?),
             "uptix.githubBranch" => Dependency::GitHubBranch(GitHubBranch::new(&node)?),
             "uptix.githubRelease" => Dependency::GitHubRelease(GitHubRelease::new(&node)?),
-            _ => return Err(UptixError::from("Unknown uptix function")),
+            _ => {
+                return Err(UptixError::StringError(format!(
+                    "Unknown uptix function {}",
+                    func
+                )));
+            }
         };
         return Ok(dep);
     }

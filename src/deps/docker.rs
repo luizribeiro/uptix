@@ -27,7 +27,10 @@ lazy_static! {
 impl Docker {
     pub fn new(node: &SyntaxNode) -> Result<Docker, UptixError> {
         if node.kind() != SyntaxKind::NODE_STRING {
-            return Err(UptixError::from("Unexpected node"));
+            return Err(UptixError::StringError(format!(
+                "Expected string as parameter to uptix.dockerImage, got: {:#?}",
+                node.kind()
+            )));
         }
 
         let text = node.text().to_string();
@@ -86,9 +89,10 @@ impl Lockable for Docker {
     async fn lock(&self) -> Result<Box<dyn Serialize>, UptixError> {
         return match self.latest_digest().await {
             Ok(Some(digest)) => Ok(Box::new(digest)),
-            Ok(None) => Err(UptixError::from(
-                "Could not find digest for image on registry",
-            )),
+            Ok(None) => Err(UptixError::StringError(format!(
+                "Could not find digest for image {} on registry",
+                self.name,
+            ))),
             Err(_err) => Err(UptixError::from(
                 "Error while fetching digest from registry",
             )),
