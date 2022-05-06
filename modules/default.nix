@@ -10,10 +10,12 @@ let
 in
 {
   dockerImage = name: "${name}@${lockFor name}";
-  githubBranch = { owner, repo, branch }:
-    (lockFor "$GITHUB_BRANCH$:${owner}/${repo}:${branch}");
-  githubRelease = { owner, repo }:
-    (lockFor "$GITHUB_RELEASE$:${owner}/${repo}");
+  githubBranch = { owner, repo, branch, ... } @ args:
+    (lockFor "$GITHUB_BRANCH$:${owner}/${repo}:${branch}")
+    // (removeAttrs args [ "branch" ]);
+  githubRelease = { owner, repo, ... } @ args:
+    (lockFor "$GITHUB_RELEASE$:${owner}/${repo}")
+    // args;
   version = githubRelease:
     let rev = githubRelease.rev; in
     if hasPrefix "v" rev
