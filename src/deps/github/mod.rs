@@ -39,7 +39,9 @@ fn compute_nix_sha256(
     if fetch_submodules.unwrap_or(false) {
         options.push("--fetch-submodules");
     }
-    if leave_dot_git.unwrap_or(false) {
+    if leave_dot_git.unwrap_or(false) || deep_clone.unwrap_or(false) {
+        // deepClone implies on leaveDotGit also being enabled, see
+        // https://nixos.org/manual/nixpkgs/stable/#fetchgit
         options.push("--leave-dotGit");
     }
     let output = Command::new("nix-prefetch-git")
