@@ -73,7 +73,14 @@ impl Lockable for GitHubRelease {
         let rev = fetch_github_latest_release(self).await?.tag_name;
         let sha256 = match &self.override_nix_sha256 {
             Some(s) => s.to_string(),
-            None => github::compute_nix_sha256(&self.owner, &self.repo, &rev)?,
+            None => github::compute_nix_sha256(
+                &self.owner,
+                &self.repo,
+                &rev,
+                self.fetchSubmodules,
+                self.deepClone,
+                self.leaveDotGit,
+            )?,
         };
         return Ok(Box::new(github::GitHubLock {
             owner: self.owner.clone(),

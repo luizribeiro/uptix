@@ -22,8 +22,28 @@ struct GitHubPrefetchInfo {
     sha256: String,
 }
 
-fn compute_nix_sha256(owner: &str, repo: &str, rev: &str) -> Result<String, Error> {
+fn compute_nix_sha256(
+    owner: &str,
+    repo: &str,
+    rev: &str,
+    fetch_submodules: Option<bool>,
+    deep_clone: Option<bool>,
+    leave_dot_git: Option<bool>,
+) -> Result<String, Error> {
+    let mut options = vec![];
+    if deep_clone.unwrap_or(false) {
+        options.push("--deepClone");
+    } else {
+        options.push("--no-deepClone");
+    }
+    if fetch_submodules.unwrap_or(false) {
+        options.push("--fetch-submodules");
+    }
+    if leave_dot_git.unwrap_or(false) {
+        options.push("--leave-dotGit");
+    }
     let output = Command::new("nix-prefetch-git")
+        .args(options)
         .arg("--quiet")
         .arg("--rev")
         .arg(rev)
