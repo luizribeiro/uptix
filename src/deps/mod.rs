@@ -25,15 +25,14 @@ pub trait Lockable {
 }
 
 impl Dependency {
-    pub fn new(func: &str, node: &SyntaxNode) -> Result<Dependency, Error> {
+    pub fn new(func: &str, node: &SyntaxNode) -> Result<Option<Dependency>, Error> {
         match func {
-            "uptix.dockerImage" => Ok(Dependency::Docker(Docker::new(&node)?)),
-            "uptix.githubBranch" => Ok(Dependency::GitHubBranch(GitHubBranch::new(&node)?)),
-            "uptix.githubRelease" => Ok(Dependency::GitHubRelease(GitHubRelease::new(&node)?)),
-            _ => Err(Error::UsageError(format!(
-                "Unknown uptix function {}",
-                func
-            ))),
+            "uptix.dockerImage" => Ok(Some(Dependency::Docker(Docker::new(&node)?))),
+            "uptix.githubBranch" => Ok(Some(Dependency::GitHubBranch(GitHubBranch::new(&node)?))),
+            "uptix.githubRelease" => {
+                Ok(Some(Dependency::GitHubRelease(GitHubRelease::new(&node)?)))
+            }
+            _ => Ok(None),
         }
     }
 
@@ -75,18 +74,16 @@ fn collect_ast_dependencies(node: SyntaxNode) -> Result<Vec<Dependency>, Error> 
     if !func.starts_with("uptix.") {
         return Ok(vec![]);
     }
-    match func.as_str() {
-        "uptix.version" | "uptix.nixosModules.uptix" => return Ok(vec![]),
-        _ => (),
-    }
 
     let value_node = node.next_sibling();
     if value_node.is_none() {
         return Ok(vec![]);
     }
 
-    let dependency = <Dependency>::new(&func, &value_node.unwrap())?;
-    return Ok(vec![dependency]);
+    return match <Dependency>::new(&func, &value_node.unwrap())? {
+        Some(dependency) => Ok(vec![dependency]),
+        None => Ok(vec![]),
+    };
 }
 
 #[cfg(test)]
