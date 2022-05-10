@@ -1,10 +1,12 @@
 mod docker;
 mod github;
+mod test_util;
 
 use crate::deps::docker::Docker;
 use crate::deps::github::branch::GitHubBranch;
 use crate::deps::github::release::GitHubRelease;
 use crate::error::Error;
+use crate::util::ParsingContext;
 use async_trait::async_trait;
 use enum_as_inner::EnumAsInner;
 use erased_serde::Serialize;
@@ -25,9 +27,13 @@ pub trait Lockable {
 }
 
 impl Dependency {
-    pub fn new(func: &str, node: &SyntaxNode) -> Result<Option<Dependency>, Error> {
+    pub fn new(
+        context: &ParsingContext,
+        func: &str,
+        node: &SyntaxNode,
+    ) -> Result<Option<Dependency>, Error> {
         match func {
-            "uptix.dockerImage" => Ok(Some(Dependency::Docker(Docker::new(&node)?))),
+            "uptix.dockerImage" => Ok(Some(Dependency::Docker(Docker::new(context, &node)?))),
             "uptix.githubBranch" => Ok(Some(Dependency::GitHubBranch(GitHubBranch::new(&node)?))),
             "uptix.githubRelease" => {
                 Ok(Some(Dependency::GitHubRelease(GitHubRelease::new(&node)?)))
@@ -56,18 +62,22 @@ impl Dependency {
 pub fn collect_file_dependencies(file_path: &str) -> Result<Vec<Dependency>, Error> {
     let content = fs::read_to_string(file_path).unwrap();
     let ast = rnix::parse(&content);
-    return collect_ast_dependencies(ast.node());
+    let context = ParsingContext::new(file_path, &content);
+    return collect_ast_dependencies(&context, ast.node());
 }
 
-fn collect_ast_dependencies(node: SyntaxNode) -> Result<Vec<Dependency>, Error> {
+fn collect_ast_dependencies(
+    context: &ParsingContext,
+    node: SyntaxNode,
+) -> Result<Vec<Dependency>, Error> {
     if node.kind() != SyntaxKind::NODE_SELECT {
-        return node.children().map(collect_ast_dependencies).try_fold(
-            Vec::new(),
-            |mut acc, next| {
+        return node
+            .children()
+            .map(|n| collect_ast_dependencies(&context, n))
+            .try_fold(Vec::new(), |mut acc, next| {
                 acc.extend_from_slice(&next?);
                 Ok(acc)
-            },
-        );
+            });
     }
 
     let func = node.text().to_string();
@@ -80,7 +90,7 @@ fn collect_ast_dependencies(node: SyntaxNode) -> Result<Vec<Dependency>, Error> 
         return Ok(vec![]);
     }
 
-    return match <Dependency>::new(&func, &value_node.unwrap())? {
+    return match <Dependency>::new(&context, &func, &value_node.unwrap())? {
         Some(dependency) => Ok(vec![dependency]),
         None => Ok(vec![]),
     };
@@ -88,17 +98,17 @@ fn collect_ast_dependencies(node: SyntaxNode) -> Result<Vec<Dependency>, Error> 
 
 #[cfg(test)]
 mod tests {
-    use super::collect_ast_dependencies;
+    use crate::deps::test_util;
 
     #[test]
     fn invalid_uptix_function() {
-        let ast = rnix::parse(
+        let dependencies: Vec<_> = test_util::deps(
             r#"{
                 uptixModule = uptix.nixosModules.uptix ./uptix.lock;
                 version = uptix.version release;
             }"#,
-        );
-        let dependencies: Vec<_> = collect_ast_dependencies(ast.node()).unwrap();
+        )
+        .unwrap();
         assert_eq!(dependencies.len(), 0);
     }
 }

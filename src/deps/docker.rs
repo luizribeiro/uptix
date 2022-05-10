@@ -1,5 +1,6 @@
 use crate::deps::Lockable;
 use crate::error::Error;
+use crate::util::ParsingContext;
 use async_trait::async_trait;
 use dkregistry::v2::Client;
 use erased_serde::Serialize;
@@ -24,12 +25,18 @@ lazy_static! {
 }
 
 impl Docker {
-    pub fn new(node: &SyntaxNode) -> Result<Docker, Error> {
+    pub fn new(context: &ParsingContext, node: &SyntaxNode) -> Result<Docker, Error> {
         if node.kind() != SyntaxKind::NODE_STRING {
-            return Err(Error::UsageError(format!(
-                "Expected string as parameter to uptix.dockerImage, got: {:#?}",
-                node.kind()
-            )));
+            let pos = (
+                usize::from(node.text_range().start()),
+                usize::from(node.text_range().len()),
+            );
+            return Err(Error::UnexpectedArgument {
+                function: "uptix.dockerImage".to_string(),
+                src: context.src(),
+                argument_pos: pos.into(),
+                expected_type: "String".to_string(),
+            });
         }
 
         let text = node.text().to_string();
@@ -99,22 +106,21 @@ impl Lockable for Docker {
 #[cfg(test)]
 mod tests {
     use super::Docker;
-    use crate::deps::collect_ast_dependencies;
+    use crate::deps::test_util;
     use crate::deps::Lockable;
 
     #[test]
     fn it_parses() {
-        let ast = rnix::parse(
+        let dependencies: Vec<_> = test_util::deps(
             r#"{
-                hass = uptix.dockerImage "homeassistant/home-assistant:stable";
-                customRepo = uptix.dockerImage "foo.io/baz/bar";
-            }"#,
-        );
-        let dependencies: Vec<_> = collect_ast_dependencies(ast.node())
-            .unwrap()
-            .iter()
-            .map(|d| d.as_docker().unwrap().clone())
-            .collect();
+            hass = uptix.dockerImage "homeassistant/home-assistant:stable";
+            customRepo = uptix.dockerImage "foo.io/baz/bar";
+        }"#,
+        )
+        .unwrap()
+        .iter()
+        .map(|d| d.as_docker().unwrap().clone())
+        .collect();
         let expected_dependencies = vec![
             Docker {
                 name: "homeassistant/home-assistant:stable".to_string(),
@@ -168,5 +174,24 @@ mod tests {
 
         assert_eq!(lock_value.as_str().unwrap(), "sha256:foobar");
         mockito::reset();
+    }
+
+    #[test]
+    fn it_provides_helpful_errors() {
+        let result = test_util::deps("{ hass = uptix.dockerImage 42; }");
+        assert!(result.is_err());
+        match result {
+            Err(crate::error::Error::UnexpectedArgument {
+                function,
+                src: _,
+                argument_pos,
+                expected_type,
+            }) => {
+                assert_eq!(function, "uptix.dockerImage");
+                assert_eq!(expected_type, "String");
+                assert_eq!(argument_pos, (27, 2).into());
+            }
+            _ => assert!(false),
+        }
     }
 }

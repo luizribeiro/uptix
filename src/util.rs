@@ -30,6 +30,24 @@ pub fn user_agent() -> String {
     return format!("uptix/{}", env!("CARGO_PKG_VERSION"));
 }
 
+pub struct ParsingContext {
+    file_path: String,
+    file_contents: String,
+}
+
+impl ParsingContext {
+    pub fn new(file_path: &str, file_contents: &str) -> Self {
+        Self {
+            file_path: file_path.to_string(),
+            file_contents: file_contents.to_string(),
+        }
+    }
+
+    pub fn src(&self) -> miette::NamedSource {
+        miette::NamedSource::new(self.file_path.clone(), self.file_contents.clone())
+    }
+}
+
 fn value_from_nix(node: &SyntaxNode) -> Result<Value, Error> {
     if node.kind() == SyntaxKind::NODE_STRING {
         let mut w = node.text().to_string();

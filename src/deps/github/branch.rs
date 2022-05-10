@@ -103,13 +103,13 @@ impl Lockable for GitHubBranch {
 #[cfg(test)]
 mod tests {
     use super::GitHubBranch;
-    use crate::deps::collect_ast_dependencies;
+    use crate::deps::test_util;
     use crate::deps::Lockable;
     use serde_json::json;
 
     #[test]
     fn it_parses() {
-        let ast = rnix::parse(
+        let dependencies: Vec<_> = test_util::deps(
             r#"{
                 uptix = fetchFromGitHub (uptix.githubBranch {
                     owner = "luizribeiro";
@@ -123,12 +123,11 @@ mod tests {
                     fetchSubmodules = true;
                 });
             }"#,
-        );
-        let dependencies: Vec<_> = collect_ast_dependencies(ast.node())
-            .unwrap()
-            .iter()
-            .map(|d| d.as_git_hub_branch().unwrap().clone())
-            .collect();
+        )
+        .unwrap()
+        .iter()
+        .map(|d| d.as_git_hub_branch().unwrap().clone())
+        .collect();
         let expected_dependencies = vec![
             GitHubBranch {
                 owner: "luizribeiro".to_string(),

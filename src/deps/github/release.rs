@@ -97,25 +97,24 @@ impl Lockable for GitHubRelease {
 #[cfg(test)]
 mod tests {
     use super::GitHubRelease;
-    use crate::deps::collect_ast_dependencies;
+    use crate::deps::test_util;
     use crate::deps::Lockable;
     use serde_json::json;
 
     #[test]
     fn it_parses() {
-        let ast = rnix::parse(
+        let dependencies: Vec<_> = test_util::deps(
             r#"{
                 uptix = fetchFromGitHub (uptix.githubRelease {
                     owner = "luizribeiro";
                     repo = "uptix";
                 });
             }"#,
-        );
-        let dependencies: Vec<_> = collect_ast_dependencies(ast.node())
-            .unwrap()
-            .iter()
-            .map(|d| d.as_git_hub_release().unwrap().clone())
-            .collect();
+        )
+        .unwrap()
+        .iter()
+        .map(|d| d.as_git_hub_release().unwrap().clone())
+        .collect();
         let expected_dependencies = vec![GitHubRelease {
             owner: "luizribeiro".to_string(),
             repo: "uptix".to_string(),
