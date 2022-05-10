@@ -1,9 +1,11 @@
+use crate::deps::assert_kind;
 use crate::deps::github;
 use crate::deps::Lockable;
 use crate::error::Error;
 use crate::util;
+use crate::util::ParsingContext;
 use async_trait::async_trait;
-use rnix::SyntaxNode;
+use rnix::{SyntaxKind, SyntaxNode};
 use serde::{Deserialize, Serialize};
 
 #[derive(Default, Serialize, Deserialize, PartialEq, Clone, Debug)]
@@ -21,8 +23,13 @@ pub struct GitHubBranch {
 }
 
 impl GitHubBranch {
-    pub fn new(node: &SyntaxNode) -> Result<GitHubBranch, Error> {
-        util::from_attr_set(node)
+    pub fn new(context: &ParsingContext, node: &SyntaxNode) -> Result<GitHubBranch, Error> {
+        util::from_attr_set(assert_kind(
+            context,
+            "uptix.githubBranch",
+            node,
+            SyntaxKind::NODE_ATTR_SET,
+        )?)
     }
 }
 
@@ -203,5 +210,24 @@ mod tests {
         );
 
         mockito::reset();
+    }
+
+    #[test]
+    fn it_provides_helpful_errors() {
+        let result = test_util::deps("{ hass = uptix.githubBranch 42; }");
+        assert!(result.is_err());
+        match result {
+            Err(crate::error::Error::UnexpectedArgument {
+                function,
+                src: _,
+                argument_pos,
+                expected_type,
+            }) => {
+                assert_eq!(function, "uptix.githubBranch");
+                assert_eq!(expected_type, "NODE_ATTR_SET");
+                assert_eq!(argument_pos, (28, 2).into());
+            }
+            _ => assert!(false),
+        }
     }
 }

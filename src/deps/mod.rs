@@ -34,7 +34,9 @@ impl Dependency {
     ) -> Result<Option<Dependency>, Error> {
         match func {
             "uptix.dockerImage" => Ok(Some(Dependency::Docker(Docker::new(context, &node)?))),
-            "uptix.githubBranch" => Ok(Some(Dependency::GitHubBranch(GitHubBranch::new(&node)?))),
+            "uptix.githubBranch" => Ok(Some(Dependency::GitHubBranch(GitHubBranch::new(
+                context, &node,
+            )?))),
             "uptix.githubRelease" => {
                 Ok(Some(Dependency::GitHubRelease(GitHubRelease::new(&node)?)))
             }
