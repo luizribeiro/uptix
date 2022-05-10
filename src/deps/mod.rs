@@ -96,6 +96,29 @@ fn collect_ast_dependencies(
     };
 }
 
+fn assert_kind<'a>(
+    context: &ParsingContext,
+    function: &str,
+    node: &'a SyntaxNode,
+    expected_kind: SyntaxKind,
+) -> Result<&'a SyntaxNode, Error> {
+    if node.kind() == expected_kind {
+        return Ok(node);
+    }
+
+    let pos = (
+        usize::from(node.text_range().start()),
+        usize::from(node.text_range().len()),
+    );
+    return Err(Error::UnexpectedArgument {
+        function: function.to_string(),
+        src: context.src(),
+        argument_pos: pos.into(),
+        // TODO: convert from SyntaxKind to friendlier names
+        expected_type: format!("{:#?}", expected_kind),
+    });
+}
+
 #[cfg(test)]
 mod tests {
     use crate::deps::test_util;

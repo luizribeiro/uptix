@@ -1,4 +1,4 @@
-use crate::deps::Lockable;
+use crate::deps::{assert_kind, Lockable};
 use crate::error::Error;
 use crate::util::ParsingContext;
 use async_trait::async_trait;
@@ -26,20 +26,8 @@ lazy_static! {
 
 impl Docker {
     pub fn new(context: &ParsingContext, node: &SyntaxNode) -> Result<Docker, Error> {
-        if node.kind() != SyntaxKind::NODE_STRING {
-            let pos = (
-                usize::from(node.text_range().start()),
-                usize::from(node.text_range().len()),
-            );
-            return Err(Error::UnexpectedArgument {
-                function: "uptix.dockerImage".to_string(),
-                src: context.src(),
-                argument_pos: pos.into(),
-                expected_type: "String".to_string(),
-            });
-        }
-
-        let text = node.text().to_string();
+        let string_node = assert_kind(context, "uptix.dockerImage", node, SyntaxKind::NODE_STRING)?;
+        let text = string_node.text().to_string();
         return Docker::from(text.as_str());
     }
 
@@ -188,7 +176,7 @@ mod tests {
                 expected_type,
             }) => {
                 assert_eq!(function, "uptix.dockerImage");
-                assert_eq!(expected_type, "String");
+                assert_eq!(expected_type, "NODE_STRING");
                 assert_eq!(argument_pos, (27, 2).into());
             }
             _ => assert!(false),
