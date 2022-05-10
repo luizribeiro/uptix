@@ -37,9 +37,9 @@ impl Dependency {
             "uptix.githubBranch" => Ok(Some(Dependency::GitHubBranch(GitHubBranch::new(
                 context, &node,
             )?))),
-            "uptix.githubRelease" => {
-                Ok(Some(Dependency::GitHubRelease(GitHubRelease::new(&node)?)))
-            }
+            "uptix.githubRelease" => Ok(Some(Dependency::GitHubRelease(GitHubRelease::new(
+                context, &node,
+            )?))),
             _ => Ok(None),
         }
     }
