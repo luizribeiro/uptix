@@ -28,7 +28,7 @@ pub enum Error {
         function: String,
         #[source_code]
         src: NamedSource,
-        #[label("expected {expected_type} here")]
+        #[label("expected a {expected_type} literal here")]
         argument_pos: SourceSpan,
         expected_type: String,
     },
