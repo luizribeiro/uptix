@@ -29,6 +29,13 @@ impl GitHubBranch {
             "uptix.githubBranch",
             node,
             SyntaxKind::NODE_ATTR_SET,
+            r#"here is an example of valid usage:
+
+  uptix.githubBranch {
+    owner = "luizribeiro";
+    repo = "uptix";
+    branch = "main";
+  }"#,
         )?)
     }
 }
@@ -222,6 +229,7 @@ mod tests {
                 src: _,
                 argument_pos,
                 expected_type,
+                help: _,
             }) => {
                 assert_eq!(function, "uptix.githubBranch");
                 assert_eq!(expected_type, "NODE_ATTR_SET");

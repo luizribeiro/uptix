@@ -26,7 +26,16 @@ lazy_static! {
 
 impl Docker {
     pub fn new(context: &ParsingContext, node: &SyntaxNode) -> Result<Docker, Error> {
-        let string_node = assert_kind(context, "uptix.dockerImage", node, SyntaxKind::NODE_STRING)?;
+        let string_node = assert_kind(
+            context,
+            "uptix.dockerImage",
+            node,
+            SyntaxKind::NODE_STRING,
+            r#"here are some examples of allowed parameters:
+ - homeassistant/home-assistant:stable
+ - grafana/grafana
+ - custom.registry.io/foo/bar:tag"#,
+        )?;
         let text = string_node.text().to_string();
         return Docker::from(text.as_str());
     }
@@ -174,6 +183,7 @@ mod tests {
                 src: _,
                 argument_pos,
                 expected_type,
+                help: _,
             }) => {
                 assert_eq!(function, "uptix.dockerImage");
                 assert_eq!(expected_type, "NODE_STRING");

@@ -21,9 +21,7 @@ pub enum Error {
     #[diagnostic(code(uptix::error::nix_parsing_error))]
     NixParsingError(String),
     #[error("Unexpected argument for {function}")]
-    #[diagnostic(help(
-        "here are some examples of valid arguments:\n - homeassistant/home-assistant:stable"
-    ))]
+    #[diagnostic(help("{help}"))]
     UnexpectedArgument {
         function: String,
         #[source_code]
@@ -31,6 +29,7 @@ pub enum Error {
         #[label("expected a {expected_type} literal here")]
         argument_pos: SourceSpan,
         expected_type: String,
+        help: String,
     },
     #[error("unknown error")]
     #[diagnostic(code(uptix::error::unknown_error))]

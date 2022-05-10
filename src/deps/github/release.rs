@@ -28,6 +28,12 @@ impl GitHubRelease {
             "uptix.githubRelease",
             node,
             SyntaxKind::NODE_ATTR_SET,
+            r#"here is an example of valid usage:
+
+  uptix.githubRelease {
+    owner = "luizribeiro";
+    repo = "uptix";
+  }"#,
         )?)
     }
 }
@@ -195,6 +201,7 @@ mod tests {
                 src: _,
                 argument_pos,
                 expected_type,
+                help: _,
             }) => {
                 assert_eq!(function, "uptix.githubRelease");
                 assert_eq!(expected_type, "NODE_ATTR_SET");

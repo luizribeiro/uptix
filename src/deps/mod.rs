@@ -103,6 +103,7 @@ fn assert_kind<'a>(
     function: &str,
     node: &'a SyntaxNode,
     expected_kind: SyntaxKind,
+    help: &str,
 ) -> Result<&'a SyntaxNode, Error> {
     if node.kind() == expected_kind {
         return Ok(node);
@@ -118,6 +119,7 @@ fn assert_kind<'a>(
         argument_pos: pos.into(),
         // TODO: convert from SyntaxKind to friendlier names
         expected_type: format!("{:#?}", expected_kind),
+        help: help.to_string(),
     });
 }
 
