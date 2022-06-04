@@ -16,7 +16,7 @@ rnix = "0.10.1"
 serde = "1.0.137"
 serde_json = "1.0.80"
 thiserror = "1.0"
-tokio = { version = "0.2", features = ["full"] }
+tokio = { version = "1.19", features = ["full"] }
 url = "2.2.2"
 walkdir = "2.3.2"
 text-size = "1.1.0"
