@@ -13,7 +13,7 @@ miette = { version = "5.1.0", features = ["fancy"] }
 regex = "1.5.6"
 reqwest = { version = "0.10.10", features = ["json"] }
 rnix = "0.10.2"
-serde = "1.0.137"
+serde = "1.0.138"
 serde_json = "1.0.82"
 thiserror = "1.0"
 tokio = { version = "0.2", features = ["full"] }
