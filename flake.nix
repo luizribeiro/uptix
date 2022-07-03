@@ -21,6 +21,9 @@
         version = "0.1.0";
         src = ./.;
         cargoLock.lockFile = ./Cargo.lock;
+        cargoLock.outputHashes = {
+          "dkregistry-0.5.1-alpha.0" = "sha256-6rE+NTlTMYw5i7FxcrXjxYB9VL0GLIOD/tWGXleMEvA=";
+        };
         buildInputs = [
           openssl
           makeWrapper
