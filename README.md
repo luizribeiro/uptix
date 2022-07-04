@@ -88,8 +88,23 @@ stdenv.mkDerivation {
 }
 ```
 
-Note that this will use the latest commit on the `master` branch. Using
-tags from GitHub releases is not yet supported.
+Note that this will use the latest commit on the `master` branch. In order to use
+the latest GitHub release for a repository, you can use `uptix.githubRelease` along
+with `uptix.version` which can be used to obtain the version number of the release:
+
+```nix
+let
+  release = uptix.githubRelease {
+    owner = "luizribeiro";
+    repo = "hello-world-rs";
+  };
+in pkgs.rustPlatform.buildRustPackage {
+  pname = "released-hello-world-rs";
+  version = uptix.version release;
+  src = pkgs.fetchFromGitHub release;
+  # ...
+};
+```
 
 ### Docker
 
