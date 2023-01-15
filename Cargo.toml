@@ -7,7 +7,7 @@ edition = "2021"
 async-trait = "0.1.56"
 # see https://github.com/camallo/dkregistry-rs/issues/209
 dkregistry = { git = "https://github.com/camallo/dkregistry-rs.git", rev = "421c28c8ba1722330b21972c0e9668a2b8e06f76" }
-enum-as-inner = "0.5.0"
+enum-as-inner = "0.5.1"
 erased-serde = "0.3.21"
 lazy_static = "1.4.0"
 miette = { version = "5.1.0", features = ["fancy"] }
