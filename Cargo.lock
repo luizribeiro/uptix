@@ -234,15 +234,17 @@ dependencies = [
 [[package]]
 name = "dkregistry"
 version = "0.5.1-alpha.0"
-source = "git+https://github.com/camallo/dkregistry-rs.git?rev=421c28c8ba1722330b21972c0e9668a2b8e06f76#421c28c8ba1722330b21972c0e9668a2b8e06f76"
+source = "git+https://github.com/camallo/dkregistry-rs.git?rev=37acecb4b8139dd1b1cc83795442f94f90e1ffc5#37acecb4b8139dd1b1cc83795442f94f90e1ffc5"
 dependencies = [
  "async-stream",
  "base64",
+ "bytes",
  "futures",
  "http",
  "libflate",
  "log",
  "mime",
+ "pin-project",
  "regex",
  "reqwest",
  "serde",
@@ -996,6 +998,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d4fd5641d01c8f18a23da7b6fe29298ff4b55afcccdf78973b24cf3175fee32e"
 
 [[package]]
+name = "pin-project"
+version = "1.0.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ad29a609b6bcd67fee905812e544992d216af9d755757c05ed2d0e15a74c6ecc"
+dependencies = [
+ "pin-project-internal",
+]
+
+[[package]]
+name = "pin-project-internal"
+version = "1.0.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "069bdb1e05adc7a8990dce9cc75370895fbe4e3d58b9b73bf1aee56359344a55"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "pin-project-lite"
 version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1131,6 +1153,7 @@ dependencies = [
  "serde_urlencoded",
  "tokio",
  "tokio-native-tls",
+ "tokio-util",
  "tower-service",
  "url",
  "wasm-bindgen",

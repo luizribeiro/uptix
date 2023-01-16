@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 async-trait = "0.1.58"
 # see https://github.com/camallo/dkregistry-rs/issues/209
-dkregistry = { git = "https://github.com/camallo/dkregistry-rs.git", rev = "421c28c8ba1722330b21972c0e9668a2b8e06f76" }
+dkregistry = { git = "https://github.com/camallo/dkregistry-rs.git", rev = "37acecb4b8139dd1b1cc83795442f94f90e1ffc5" }
 enum-as-inner = "0.5.1"
 erased-serde = "0.3.24"
 lazy_static = "1.4.0"
