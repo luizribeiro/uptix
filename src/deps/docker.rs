@@ -75,10 +75,10 @@ impl Docker {
             .registry(self.registry.as_str())
             .insecure_registry(!self.use_https)
             .accepted_types(Some(vec![
-                 (MediaTypes::ManifestV2S2, Some(0.5)),
-                 (MediaTypes::ManifestV2S1Signed, Some(0.4)),
-                 (MediaTypes::ManifestList, Some(0.5)),
-                 (MediaTypes::OCIImageIndexV1, Some(0.5))
+                (MediaTypes::ManifestV2S2, Some(0.5)),
+                (MediaTypes::ManifestV2S1Signed, Some(0.4)),
+                (MediaTypes::ManifestList, Some(0.5)),
+                (MediaTypes::OCIImageIndexV1, Some(0.5)),
             ]))
             .build()?
             .authenticate(scopes.as_slice())
