@@ -38,6 +38,11 @@ in
       # stable tag
       image = uptix.dockerImage "homeassistant/home-assistant:stable";
     };
+    zigbee2mqtt = {
+      # this container is using the latest released docker image under the
+      # stable tag
+      image = uptix.dockerImage "koenkk/zigbee2mqtt:latest";
+    };
   };
 
   environment.systemPackages = [

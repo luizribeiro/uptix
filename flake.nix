@@ -22,7 +22,7 @@
         src = ./.;
         cargoLock.lockFile = ./Cargo.lock;
         cargoLock.outputHashes = {
-          "dkregistry-0.5.1-alpha.0" = "sha256-ibzJoUpiZxUmMQTNrd8DlU6wEuuw+UptnN2QGz+dqxg=";
+          "dkregistry-0.5.1-alpha.0" = "sha256-s2F+g5e02HOLQGNPnl4NYe4IQqYI9R84by7hiT3J26I=";
         };
         buildInputs = [
           openssl
