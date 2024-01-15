@@ -10,7 +10,7 @@ dkregistry = { git = "https://github.com/luizribeiro/dkregistry-rs.git", rev = "
 enum-as-inner = "0.5.1"
 erased-serde = "0.3.24"
 lazy_static = "1.4.0"
-miette = { version = "5.4.1", features = ["fancy"] }
+miette = { version = "5.10.0", features = ["fancy"] }
 regex = "1.7.1"
 reqwest = { version = "0.11.13", features = ["json"] }
 rnix = "0.10.2"
