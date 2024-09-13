@@ -31,8 +31,12 @@ async fn main() -> Result<()> {
     std::io::stdout().flush().into_diagnostic()?;
     let mut lock_file = BTreeMap::new();
     for dependency in all_dependencies {
-        let lock = dependency.lock().await.into_diagnostic()?;
-        lock_file.insert(dependency.key().to_string(), lock);
+        let lock = dependency.lock().await.into_diagnostic();
+        if lock.is_err() {
+            println!("{:?}", lock.err().unwrap());
+            return Ok(());
+        }
+        lock_file.insert(dependency.key().to_string(), lock.unwrap());
     }
     println!("Done.");
 
