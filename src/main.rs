@@ -33,6 +33,7 @@ async fn main() -> Result<()> {
     for dependency in all_dependencies {
         let lock = dependency.lock().await.into_diagnostic();
         if lock.is_err() {
+            println!("Error while updating dependency {}", dependency.key());
             println!("{:?}", lock.err().unwrap());
             return Ok(());
         }
