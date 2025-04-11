@@ -43,6 +43,15 @@ in
       # stable tag
       image = uptix.dockerImage "koenkk/zigbee2mqtt:latest";
     };
+    # This is the postgres:15 image that was causing the 401 Unauthorized error
+    # Our fix should now handle this correctly
+    postgres = {
+      image = uptix.dockerImage "postgres:15";
+      volumes = [ "postgres-data:/var/lib/postgresql/data" ];
+      environment = {
+        POSTGRES_PASSWORD = "postgres";
+      };
+    };
   };
 
   environment.systemPackages = [

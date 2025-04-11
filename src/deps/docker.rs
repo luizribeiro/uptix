@@ -87,24 +87,60 @@ impl Docker {
     }
 
     async fn latest_digest(&self) -> Result<Option<String>, Error> {
-        let login_scope = format!("repository:{}:pull", self.image);
+        // For Docker Hub (registry-1.docker.io), we need to handle library/ prefix for official images
+        let image_name = if self.registry == DEFAULT_REGISTRY && !self.image.contains('/') {
+            format!("library/{}", self.image)
+        } else {
+            self.image.clone()
+        };
+        
+        // Common configuration settings
+        let accepted_types = Some(vec![
+            (MediaTypes::ManifestV2S2, Some(0.5)),
+            (MediaTypes::ManifestV2S1Signed, Some(0.4)),
+            (MediaTypes::ManifestList, Some(0.5)),
+            (MediaTypes::OCIImageIndexV1, Some(0.5)),
+        ]);
+        
+        // First try: Direct access without authentication (for public images)
+        let direct_result = async {
+            let dclient = Client::configure()
+                .registry(self.registry.as_str())
+                .insecure_registry(!self.use_https)
+                .accepted_types(accepted_types.clone())
+                .build()?;
+            dclient.get_manifestref(image_name.as_str(), self.tag.as_str()).await
+        }.await;
+        
+        // If direct access worked, return the result
+        if direct_result.is_ok() {
+            return Ok(direct_result?);
+        }
+        
+        // Second try: With authentication
+        let login_scope = format!("repository:{}:pull", image_name);
         let scopes = vec![login_scope.as_str()];
-        let dclient = Client::configure()
-            .registry(self.registry.as_str())
-            .insecure_registry(!self.use_https)
-            .accepted_types(Some(vec![
-                (MediaTypes::ManifestV2S2, Some(0.5)),
-                (MediaTypes::ManifestV2S1Signed, Some(0.4)),
-                (MediaTypes::ManifestList, Some(0.5)),
-                (MediaTypes::OCIImageIndexV1, Some(0.5)),
-            ]))
-            .build()?
-            .authenticate(scopes.as_slice())
-            .await?;
-        let digest = dclient
-            .get_manifestref(self.image.as_str(), self.tag.as_str())
-            .await?;
-        return Ok(digest);
+        
+        let authenticated_result = async {
+            let dclient = Client::configure()
+                .registry(self.registry.as_str())
+                .insecure_registry(!self.use_https)
+                .accepted_types(accepted_types)
+                .build()?
+                .authenticate(scopes.as_slice())
+                .await?;
+            dclient.get_manifestref(image_name.as_str(), self.tag.as_str()).await
+        }.await;
+        
+        // Log errors if debugging is needed
+        if let Err(ref auth_err) = authenticated_result {
+            if let Err(ref direct_err) = direct_result {
+                eprintln!("Direct access error: {:?}", direct_err);
+                eprintln!("Authenticated access error: {:?}", auth_err);
+            }
+        }
+        
+        return Ok(authenticated_result?);
     }
 }
 

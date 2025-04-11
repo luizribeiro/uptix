@@ -17,5 +17,7 @@
     "deepClone": false,
     "leaveDotGit": false
   },
-  "homeassistant/home-assistant:stable": "sha256:c32ef15977e203f4e32f9873b4c9c0439fa885e09c942e3b0f145a9741831731"
+  "homeassistant/home-assistant:stable": "sha256:eecdfc57236ac9cfd9f296b61ae0c8ff65b8e483346e0f15ee14a75a3aa81efa",
+  "koenkk/zigbee2mqtt:latest": "sha256:5c1f0ca9669292b1bdabc7b6d9927642049bc2c1ee53f42b7299181e93dd7d8f",
+  "postgres:15": "sha256:fe45ed1a824b81c0c9c605890963b67501758ca8c946db89089c85ce0f88e974"
 }
