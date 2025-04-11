@@ -21,8 +21,12 @@ const DEFAULT_REGISTRY: &str = "registry-1.docker.io";
 const DEFAULT_TAG: &str = "latest";
 
 lazy_static! {
+    // Matches:
+    // 1. Optional registry with trailing slash: (registry.io/)
+    // 2. Image name with optional namespace: (namespace/name or just name)
+    // 3. Optional tag with leading colon: (:tag)
     static ref RE: Regex =
-        Regex::new(r#"((?:([a-z0-9.-]+)/)?([a-z0-9-]+/[a-z0-9-]+):?([a-z0-9.-]+)?)"#).unwrap();
+        Regex::new(r#"^(?:([a-z0-9.-]+)/)?([a-z0-9-]+(?:/[a-z0-9-]+)*):?([a-z0-9.-]+)?$"#).unwrap();
 }
 
 impl Docker {
@@ -35,29 +39,43 @@ impl Docker {
             r#"here are some examples of allowed parameters:
  - homeassistant/home-assistant:stable
  - grafana/grafana
+ - postgres:15
+ - redis:7-alpine
  - custom.registry.io/foo/bar:tag"#,
         )?;
+        // Remove the quotes from the string
         let text = string_node.text().to_string();
-        return Docker::from(text.as_str());
+        let text = text.trim_matches('"');
+        return Docker::from(text);
     }
 
     fn from(text: &str) -> Result<Docker, Error> {
         let caps = RE.captures(text).expect("Malformatted Docker image");
-        let name = caps
-            .get(1)
-            .map(|m| m.as_str())
-            .expect("Invalid Docker image name")
-            .to_string();
-        let registry = caps
-            .get(2)
-            .map_or(DEFAULT_REGISTRY, |m| m.as_str())
-            .to_string();
-        let image = caps
-            .get(3)
-            .map(|m| m.as_str())
-            .expect("Invalid Docker image")
-            .to_string();
-        let tag = caps.get(4).map_or(DEFAULT_TAG, |m| m.as_str()).to_string();
+        
+        // Extract components from regex capture groups
+        let registry_part = caps.get(1);
+        let image_part = caps.get(2).expect("Invalid Docker image");
+        let tag_part = caps.get(3);
+        
+        // The full name is the original text
+        let name = text.to_string();
+        
+        // Check if this is a registry or a namespace
+        let (registry, image) = if let Some(reg) = registry_part {
+            // If the registry part contains a dot, it's likely a registry domain
+            if reg.as_str().contains('.') {
+                (reg.as_str().to_string(), image_part.as_str().to_string())
+            } else {
+                // It's a namespace, not a registry
+                (DEFAULT_REGISTRY.to_string(), format!("{}/{}", reg.as_str(), image_part.as_str()))
+            }
+        } else {
+            // No registry specified, use default
+            (DEFAULT_REGISTRY.to_string(), image_part.as_str().to_string())
+        };
+        
+        // Tag defaults to "latest" if not specified
+        let tag = tag_part.map_or(DEFAULT_TAG.to_string(), |m| m.as_str().to_string());
 
         return Ok(Docker {
             name,
@@ -119,6 +137,9 @@ mod tests {
             r#"{
             hass = uptix.dockerImage "homeassistant/home-assistant:stable";
             customRepo = uptix.dockerImage "foo.io/baz/bar";
+            postgres = uptix.dockerImage "postgres:15";
+            redis = uptix.dockerImage "redis:7-alpine";
+            clickhouse = uptix.dockerImage "clickhouse/clickhouse-server:23.11";
         }"#,
         )
         .unwrap()
@@ -138,6 +159,27 @@ mod tests {
                 registry: "foo.io".to_string(),
                 image: "baz/bar".to_string(),
                 tag: "latest".to_string(),
+                use_https: true,
+            },
+            Docker {
+                name: "postgres:15".to_string(),
+                registry: "registry-1.docker.io".to_string(),
+                image: "postgres".to_string(),
+                tag: "15".to_string(),
+                use_https: true,
+            },
+            Docker {
+                name: "redis:7-alpine".to_string(),
+                registry: "registry-1.docker.io".to_string(),
+                image: "redis".to_string(),
+                tag: "7-alpine".to_string(),
+                use_https: true,
+            },
+            Docker {
+                name: "clickhouse/clickhouse-server:23.11".to_string(),
+                registry: "registry-1.docker.io".to_string(),
+                image: "clickhouse/clickhouse-server".to_string(),
+                tag: "23.11".to_string(),
                 use_https: true,
             },
         ];
@@ -198,5 +240,39 @@ mod tests {
             }
             _ => assert!(false),
         }
+    }
+
+    #[test]
+    fn it_parses_simple_images() {
+        let image = Docker::from("postgres:15").unwrap();
+        assert_eq!(image.registry, "registry-1.docker.io");
+        assert_eq!(image.image, "postgres");
+        assert_eq!(image.tag, "15");
+        
+        let image = Docker::from("redis").unwrap();
+        assert_eq!(image.registry, "registry-1.docker.io");
+        assert_eq!(image.image, "redis");
+        assert_eq!(image.tag, "latest");
+    }
+
+    #[test]
+    fn it_parses_namespaced_images() {
+        let image = Docker::from("homeassistant/home-assistant:stable").unwrap();
+        assert_eq!(image.registry, "registry-1.docker.io");
+        assert_eq!(image.image, "homeassistant/home-assistant");
+        assert_eq!(image.tag, "stable");
+    }
+
+    #[test]
+    fn it_parses_registry_images() {
+        let image = Docker::from("ghcr.io/user/app:v1").unwrap();
+        assert_eq!(image.registry, "ghcr.io");
+        assert_eq!(image.image, "user/app");
+        assert_eq!(image.tag, "v1");
+        
+        let image = Docker::from("my-registry.example.com/team/project:latest").unwrap();
+        assert_eq!(image.registry, "my-registry.example.com");
+        assert_eq!(image.image, "team/project");
+        assert_eq!(image.tag, "latest");
     }
 }
