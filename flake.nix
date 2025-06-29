@@ -27,6 +27,10 @@
         buildInputs = [
           openssl
           makeWrapper
+        ] ++ lib.optionals stdenv.isDarwin [
+          darwin.apple_sdk.frameworks.Security
+          darwin.apple_sdk.frameworks.CoreFoundation
+          libiconv
         ];
         preBuild = ''
           export OPENSSL_DIR="${pkgs.openssl.dev}"
@@ -45,6 +49,10 @@
       devShell = mkShell {
         buildInputs = [
           openssl
+        ] ++ lib.optionals stdenv.isDarwin [
+          darwin.apple_sdk.frameworks.Security
+          darwin.apple_sdk.frameworks.CoreFoundation
+          libiconv
         ];
         nativeBuildInputs = [
           # dependencies which go on the nix wrapper
