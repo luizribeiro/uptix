@@ -40,7 +40,7 @@ jobs:
         with:
           name: uptix
           authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
-        if: ${{ secrets.CACHIX_AUTH_TOKEN != '' }}
+        continue-on-error: true
       - run: nix flake lock --update-input uptix
         working-directory: ./example/
       - run: nix develop -c uptix
