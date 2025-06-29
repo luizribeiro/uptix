@@ -51,15 +51,15 @@ impl Docker {
 
     fn from(text: &str) -> Result<Docker, Error> {
         let caps = RE.captures(text).expect("Malformatted Docker image");
-        
+
         // Extract components from regex capture groups
         let registry_part = caps.get(1);
         let image_part = caps.get(2).expect("Invalid Docker image");
         let tag_part = caps.get(3);
-        
+
         // The full name is the original text
         let name = text.to_string();
-        
+
         // Check if this is a registry or a namespace
         let (registry, image) = if let Some(reg) = registry_part {
             // If the registry part contains a dot, it's likely a registry domain
@@ -67,13 +67,19 @@ impl Docker {
                 (reg.as_str().to_string(), image_part.as_str().to_string())
             } else {
                 // It's a namespace, not a registry
-                (DEFAULT_REGISTRY.to_string(), format!("{}/{}", reg.as_str(), image_part.as_str()))
+                (
+                    DEFAULT_REGISTRY.to_string(),
+                    format!("{}/{}", reg.as_str(), image_part.as_str()),
+                )
             }
         } else {
             // No registry specified, use default
-            (DEFAULT_REGISTRY.to_string(), image_part.as_str().to_string())
+            (
+                DEFAULT_REGISTRY.to_string(),
+                image_part.as_str().to_string(),
+            )
         };
-        
+
         // Tag defaults to "latest" if not specified
         let tag = tag_part.map_or(DEFAULT_TAG.to_string(), |m| m.as_str().to_string());
 
@@ -93,7 +99,7 @@ impl Docker {
         } else {
             self.image.clone()
         };
-        
+
         // Common configuration settings
         let accepted_types = Some(vec![
             (MediaTypes::ManifestV2S2, Some(0.5)),
@@ -101,7 +107,7 @@ impl Docker {
             (MediaTypes::ManifestList, Some(0.5)),
             (MediaTypes::OCIImageIndexV1, Some(0.5)),
         ]);
-        
+
         // First try: Direct access without authentication (for public images)
         let direct_result = async {
             let dclient = Client::configure()
@@ -109,18 +115,21 @@ impl Docker {
                 .insecure_registry(!self.use_https)
                 .accepted_types(accepted_types.clone())
                 .build()?;
-            dclient.get_manifestref(image_name.as_str(), self.tag.as_str()).await
-        }.await;
-        
+            dclient
+                .get_manifestref(image_name.as_str(), self.tag.as_str())
+                .await
+        }
+        .await;
+
         // If direct access worked, return the result
         if direct_result.is_ok() {
             return Ok(direct_result?);
         }
-        
+
         // Second try: With authentication
         let login_scope = format!("repository:{}:pull", image_name);
         let scopes = vec![login_scope.as_str()];
-        
+
         let authenticated_result = async {
             let dclient = Client::configure()
                 .registry(self.registry.as_str())
@@ -129,9 +138,12 @@ impl Docker {
                 .build()?
                 .authenticate(scopes.as_slice())
                 .await?;
-            dclient.get_manifestref(image_name.as_str(), self.tag.as_str()).await
-        }.await;
-        
+            dclient
+                .get_manifestref(image_name.as_str(), self.tag.as_str())
+                .await
+        }
+        .await;
+
         // Log errors if debugging is needed
         if let Err(ref auth_err) = authenticated_result {
             if let Err(ref direct_err) = direct_result {
@@ -139,7 +151,7 @@ impl Docker {
                 eprintln!("Authenticated access error: {:?}", auth_err);
             }
         }
-        
+
         return Ok(authenticated_result?);
     }
 }
@@ -262,28 +274,28 @@ mod tests {
     // as that would require a complex mock setup and is more of an integration test.
     // Instead, we're focusing on testing the specific logic we added to fix the bug:
     // 1. The library/ prefix is correctly added for official images
-    
+
     #[test]
     fn it_adds_library_prefix_for_official_images() {
         // Create a Docker struct for an official image (postgres:15)
         let docker = Docker {
             name: "postgres:15".to_string(),
-            registry: DEFAULT_REGISTRY.to_string(),  // registry-1.docker.io
+            registry: DEFAULT_REGISTRY.to_string(), // registry-1.docker.io
             image: "postgres".to_string(),
             tag: "15".to_string(),
             use_https: true,
         };
-        
+
         // Extract the code that computes the image name with the library/ prefix
         let image_name = if docker.registry == DEFAULT_REGISTRY && !docker.image.contains('/') {
             format!("library/{}", docker.image)
         } else {
             docker.image.clone()
         };
-        
+
         // Verify that the library/ prefix is added
         assert_eq!(image_name, "library/postgres");
-        
+
         // Test with a custom registry (should not add library/)
         let docker = Docker {
             name: "postgres:15".to_string(),
@@ -292,16 +304,16 @@ mod tests {
             tag: "15".to_string(),
             use_https: true,
         };
-        
+
         let image_name = if docker.registry == DEFAULT_REGISTRY && !docker.image.contains('/') {
             format!("library/{}", docker.image)
         } else {
             docker.image.clone()
         };
-        
+
         // Verify that the library/ prefix is NOT added for custom registries
         assert_eq!(image_name, "postgres");
-        
+
         // Test with a namespaced image (should not add library/)
         let docker = Docker {
             name: "bitnami/postgresql:15".to_string(),
@@ -310,13 +322,13 @@ mod tests {
             tag: "15".to_string(),
             use_https: true,
         };
-        
+
         let image_name = if docker.registry == DEFAULT_REGISTRY && !docker.image.contains('/') {
             format!("library/{}", docker.image)
         } else {
             docker.image.clone()
         };
-        
+
         // Verify that the library/ prefix is NOT added for namespaced images
         assert_eq!(image_name, "bitnami/postgresql");
     }
@@ -347,7 +359,7 @@ mod tests {
         assert_eq!(image.registry, "registry-1.docker.io");
         assert_eq!(image.image, "postgres");
         assert_eq!(image.tag, "15");
-        
+
         let image = Docker::from("redis").unwrap();
         assert_eq!(image.registry, "registry-1.docker.io");
         assert_eq!(image.image, "redis");
@@ -368,7 +380,7 @@ mod tests {
         assert_eq!(image.registry, "ghcr.io");
         assert_eq!(image.image, "user/app");
         assert_eq!(image.tag, "v1");
-        
+
         let image = Docker::from("my-registry.example.com/team/project:latest").unwrap();
         assert_eq!(image.registry, "my-registry.example.com");
         assert_eq!(image.image, "team/project");
