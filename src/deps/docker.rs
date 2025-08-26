@@ -169,15 +169,34 @@ impl Lockable for Docker {
         (self.registry == DEFAULT_REGISTRY && self.image == pattern && !pattern.contains(':'))
     }
 
-    fn metadata(&self) -> DependencyMetadata {
+    fn base_metadata(&self) -> DependencyMetadata {
         DependencyMetadata {
             name: self.image.clone(),
-            version: self.tag.clone(),
+            version_selector: Some(self.tag.clone()),
+            resolved_version: None, // Will be filled in by update_metadata_with_lock
             dep_type: "docker".to_string(),
             description: format!(
                 "Docker image {}:{} from {}",
                 self.image, self.tag, self.registry
             ),
+        }
+    }
+
+    fn update_metadata_with_lock(
+        &self,
+        metadata: &mut DependencyMetadata,
+        lock_data: &serde_json::Value,
+    ) {
+        // Docker lock data is just a string with the digest
+        if let Some(digest) = lock_data.as_str() {
+            // Extract just the hash part of the digest
+            if let Some(hash_part) = digest.strip_prefix("sha256:") {
+                // Take first 12 characters for display
+                metadata.resolved_version =
+                    Some(format!("sha256:{}", &hash_part[..12.min(hash_part.len())]));
+            } else {
+                metadata.resolved_version = Some(digest.to_string());
+            }
         }
     }
 

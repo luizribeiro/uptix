@@ -154,32 +154,42 @@ fn list_command_in_dir(root_path: &str) -> Result<()> {
     }
 
     println!("Dependencies in uptix.lock:");
-    println!("{:<40} {:<20} {:<15}", "NAME", "VERSION", "TYPE");
-    println!("{}", "-".repeat(75));
+    println!(
+        "{:<35} {:<20} {:<20} {:<15}",
+        "NAME", "SELECTOR", "RESOLVED", "TYPE"
+    );
+    println!("{}", "-".repeat(90));
 
     for (key, value) in &lock_json {
-        // Try to parse as new format with metadata
-        if let Ok(metadata_obj) = value.get("metadata").ok_or("no metadata") {
-            if let Ok(name) = metadata_obj
-                .get("name")
-                .and_then(|v| v.as_str())
-                .ok_or("no name")
-            {
-                let version = metadata_obj
-                    .get("version")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("unknown");
-                let dep_type = metadata_obj
-                    .get("dep_type")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("unknown");
-                println!("{:<40} {:<20} {:<15}", name, version, dep_type);
-                continue;
-            }
-        }
+        let Some(metadata_obj) = value.get("metadata") else {
+            eprintln!("Error: Missing metadata for dependency {}", key);
+            continue;
+        };
 
-        // Fall back to old format - just show the key
-        println!("{:<40} {:<20} {:<15}", key, "legacy", "unknown");
+        let Some(name) = metadata_obj.get("name").and_then(|v| v.as_str()) else {
+            eprintln!("Error: Missing name in metadata for {}", key);
+            continue;
+        };
+
+        let selector = metadata_obj
+            .get("version_selector")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown");
+
+        let resolved = metadata_obj
+            .get("resolved_version")
+            .and_then(|v| v.as_str())
+            .unwrap_or("pending");
+
+        let dep_type = metadata_obj
+            .get("dep_type")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown");
+
+        println!(
+            "{:<35} {:<20} {:<20} {:<15}",
+            name, selector, resolved, dep_type
+        );
     }
 
     Ok(())
@@ -226,37 +236,52 @@ fn show_command_in_dir(root_path: &str, dependency: &str) -> Result<()> {
 }
 
 fn display_dependency_details(key: &str, value: &Value) -> Result<()> {
-    // Try to parse as new format with metadata
-    if let Some(metadata_obj) = value.get("metadata") {
-        println!("Dependency Key: {}", key);
-        println!();
+    let Some(metadata_obj) = value.get("metadata") else {
+        eprintln!("Error: Missing metadata for dependency {}", key);
+        return Ok(());
+    };
 
-        if let Some(name) = metadata_obj.get("name").and_then(|v| v.as_str()) {
-            println!("Name: {}", name);
-        }
-        if let Some(version) = metadata_obj.get("version").and_then(|v| v.as_str()) {
-            println!("Version: {}", version);
-        }
-        if let Some(dep_type) = metadata_obj.get("dep_type").and_then(|v| v.as_str()) {
-            println!("Type: {}", dep_type);
-        }
-        if let Some(description) = metadata_obj.get("description").and_then(|v| v.as_str()) {
-            println!("Description: {}", description);
-        }
+    println!("Dependency Key: {}", key);
+    println!();
 
-        println!("\nLock data:");
-        if let Some(lock_data) = value.get("lock") {
-            println!(
-                "{}",
-                serde_json::to_string_pretty(lock_data).into_diagnostic()?
-            );
-        }
-    } else {
-        // Fall back to old format
-        println!("Dependency: {}", key);
-        println!("\nLocked version (legacy format):");
-        println!("{}", serde_json::to_string_pretty(value).into_diagnostic()?);
+    if let Some(name) = metadata_obj.get("name").and_then(|v| v.as_str()) {
+        println!("Name: {}", name);
     }
+
+    if let Some(selector) = metadata_obj
+        .get("version_selector")
+        .and_then(|v| v.as_str())
+    {
+        println!("Version Selector: {}", selector);
+    }
+
+    if let Some(resolved) = metadata_obj
+        .get("resolved_version")
+        .and_then(|v| v.as_str())
+    {
+        println!("Resolved Version: {}", resolved);
+    } else {
+        println!("Resolved Version: pending");
+    }
+
+    if let Some(dep_type) = metadata_obj.get("dep_type").and_then(|v| v.as_str()) {
+        println!("Type: {}", dep_type);
+    }
+
+    if let Some(description) = metadata_obj.get("description").and_then(|v| v.as_str()) {
+        println!("Description: {}", description);
+    }
+
+    println!("\nLock data:");
+    let Some(lock_data) = value.get("lock") else {
+        eprintln!("Error: Missing lock data for dependency {}", key);
+        return Ok(());
+    };
+
+    println!(
+        "{}",
+        serde_json::to_string_pretty(lock_data).into_diagnostic()?
+    );
 
     Ok(())
 }

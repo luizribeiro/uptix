@@ -99,12 +99,24 @@ impl Lockable for GitHubRelease {
         false
     }
 
-    fn metadata(&self) -> DependencyMetadata {
+    fn base_metadata(&self) -> DependencyMetadata {
         DependencyMetadata {
             name: format!("{}/{}", self.owner, self.repo),
-            version: "latest release".to_string(), // This will be updated with actual version after fetching
+            version_selector: Some("latest".to_string()),
+            resolved_version: None, // Will be filled in by update_metadata_with_lock
             dep_type: "github-release".to_string(),
             description: format!("GitHub release from {}/{}", self.owner, self.repo),
+        }
+    }
+
+    fn update_metadata_with_lock(
+        &self,
+        metadata: &mut DependencyMetadata,
+        lock_data: &serde_json::Value,
+    ) {
+        // Extract the rev field which contains the release tag
+        if let Some(rev) = lock_data.get("rev").and_then(|v| v.as_str()) {
+            metadata.resolved_version = Some(rev.to_string());
         }
     }
 

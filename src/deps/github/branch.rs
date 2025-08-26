@@ -111,15 +111,28 @@ impl Lockable for GitHubBranch {
         false
     }
 
-    fn metadata(&self) -> DependencyMetadata {
+    fn base_metadata(&self) -> DependencyMetadata {
         DependencyMetadata {
             name: format!("{}/{}", self.owner, self.repo),
-            version: format!("branch:{}", self.branch),
+            version_selector: Some(self.branch.clone()),
+            resolved_version: None, // Will be filled in by update_metadata_with_lock
             dep_type: "github-branch".to_string(),
             description: format!(
                 "GitHub branch {} from {}/{}",
                 self.branch, self.owner, self.repo
             ),
+        }
+    }
+
+    fn update_metadata_with_lock(
+        &self,
+        metadata: &mut DependencyMetadata,
+        lock_data: &serde_json::Value,
+    ) {
+        // Extract the rev field which contains the commit SHA
+        if let Some(rev) = lock_data.get("rev").and_then(|v| v.as_str()) {
+            // Show first 7 characters of SHA for brevity
+            metadata.resolved_version = Some(rev.chars().take(7).collect());
         }
     }
 

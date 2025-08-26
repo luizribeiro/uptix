@@ -102,9 +102,11 @@ fn test_list_with_dependencies() {
 
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stdout.contains("Dependencies in uptix.lock:"));
-    assert!(stdout.contains("postgres:15"));
-    assert!(stdout.contains("redis:latest"));
+    // With backward compatibility removed, old format shows errors
+    assert!(stderr.contains("Error: Missing metadata for dependency postgres:15"));
+    assert!(stderr.contains("Error: Missing metadata for dependency redis:latest"));
 }
 
 #[test]
@@ -139,10 +141,9 @@ fn test_show_dependency_found() {
         .expect("Failed to execute uptix show");
 
     assert!(output.status.success());
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("postgres:15"));
-    assert!(stdout.contains("Locked version (legacy format):")); // Old format shows legacy message
-    assert!(stdout.contains("sha256:somehash"));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    // With backward compatibility removed, old format shows error
+    assert!(stderr.contains("Error: Missing metadata for dependency postgres:15"));
 }
 
 #[test]

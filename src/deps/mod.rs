@@ -24,7 +24,10 @@ pub enum Dependency {
 #[derive(Clone, Debug, SerdeSerialize, Deserialize)]
 pub struct DependencyMetadata {
     pub name: String,
-    pub version: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub version_selector: Option<String>, // e.g., "latest", "stable", "15", "main"
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resolved_version: Option<String>, // e.g., actual SHA, digest, or release tag
     pub dep_type: String,
     pub description: String,
 }
@@ -39,17 +42,29 @@ pub struct LockEntry {
 pub trait Lockable {
     fn key(&self) -> String;
     fn matches(&self, pattern: &str) -> bool;
-    fn metadata(&self) -> DependencyMetadata;
+    fn base_metadata(&self) -> DependencyMetadata;
     async fn lock(&self) -> Result<Box<dyn Serialize>, Error>;
     async fn lock_with_metadata(&self) -> Result<LockEntry, Error> {
         let lock_data = self.lock().await?;
         let json_value = serde_json::to_value(&*lock_data)
             .map_err(|e| Error::StringError(format!("Failed to serialize lock data: {}", e)))?;
+
+        // Get base metadata and then update with resolved version
+        let mut metadata = self.base_metadata();
+        self.update_metadata_with_lock(&mut metadata, &json_value);
+
         Ok(LockEntry {
-            metadata: self.metadata(),
+            metadata,
             lock: json_value,
         })
     }
+
+    // Each dependency type implements this to extract resolved version from lock data
+    fn update_metadata_with_lock(
+        &self,
+        metadata: &mut DependencyMetadata,
+        lock_data: &serde_json::Value,
+    );
 }
 
 impl Dependency {
@@ -94,11 +109,11 @@ impl Dependency {
         }
     }
 
-    pub fn metadata(&self) -> DependencyMetadata {
+    pub fn base_metadata(&self) -> DependencyMetadata {
         match self {
-            Dependency::Docker(d) => d.metadata(),
-            Dependency::GitHubBranch(d) => d.metadata(),
-            Dependency::GitHubRelease(d) => d.metadata(),
+            Dependency::Docker(d) => d.base_metadata(),
+            Dependency::GitHubBranch(d) => d.base_metadata(),
+            Dependency::GitHubRelease(d) => d.base_metadata(),
         }
     }
 
