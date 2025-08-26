@@ -79,20 +79,20 @@ fn test_list_no_dependencies() {
         .expect("Failed to execute uptix list");
 
     assert!(output.status.success());
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("No uptix dependencies found"));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("No uptix.lock file found"));
 }
 
 #[test]
 fn test_list_with_dependencies() {
     let temp_dir = TempDir::new().unwrap();
 
-    // Create a simple nix file with dependencies
-    let nix_content = r#"{
-        postgres = uptix.dockerImage "postgres:15";
-        redis = uptix.dockerImage "redis:latest";
+    // Create a lock file with dependencies
+    let lock_content = r#"{
+        "postgres:15": "sha256:bc51cf4f1fe02cce7ed2370b20128a9b00b4eb804573a77d2a0d877aaa9c82b1",
+        "redis:latest": "sha256:472f4f5ed5d4258056093ea5745bc0ada37628b667d7db4fb12c2ffea74b2703"
     }"#;
-    fs::write(temp_dir.path().join("test.nix"), nix_content).unwrap();
+    fs::write(temp_dir.path().join("uptix.lock"), lock_content).unwrap();
 
     let output = Command::new(uptix_binary())
         .current_dir(temp_dir.path())
@@ -102,7 +102,7 @@ fn test_list_with_dependencies() {
 
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Dependencies found in project:"));
+    assert!(stdout.contains("Dependencies in uptix.lock:"));
     assert!(stdout.contains("postgres:15"));
     assert!(stdout.contains("redis:latest"));
 }
@@ -119,20 +119,14 @@ fn test_show_dependency_not_found() {
 
     assert!(output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("Dependency 'nonexistent:dep' not found"));
+    assert!(stderr.contains("No uptix.lock file found"));
 }
 
 #[test]
 fn test_show_dependency_found() {
     let temp_dir = TempDir::new().unwrap();
 
-    // Create a nix file with a dependency
-    let nix_content = r#"{
-        postgres = uptix.dockerImage "postgres:15";
-    }"#;
-    fs::write(temp_dir.path().join("test.nix"), nix_content).unwrap();
-
-    // Create a lock file
+    // Create a lock file with a dependency
     let lock_content = r#"{
         "postgres:15": "sha256:somehash"
     }"#;
@@ -147,7 +141,7 @@ fn test_show_dependency_found() {
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("Dependency: postgres:15"));
-    assert!(stdout.contains("Current locked version:"));
+    assert!(stdout.contains("Locked version:"));
     assert!(stdout.contains("sha256:somehash"));
 }
 

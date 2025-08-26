@@ -137,22 +137,25 @@ fn list_command() -> Result<()> {
 }
 
 fn list_command_in_dir(root_path: &str) -> Result<()> {
-    let all_files = util::discover_nix_files(root_path);
-    let mut all_dependencies: Vec<Dependency> = vec![];
+    let lock_path = Path::new(root_path).join("uptix.lock");
 
-    for f in all_files {
-        let mut deps = collect_file_dependencies(f.to_str().unwrap())?;
-        all_dependencies.append(&mut deps);
-    }
-
-    if all_dependencies.is_empty() {
-        println!("No uptix dependencies found in the project.");
+    if !lock_path.exists() {
+        eprintln!("Error: No uptix.lock file found. Run 'uptix update' first.");
         return Ok(());
     }
 
-    println!("Dependencies found in project:");
-    for dep in all_dependencies {
-        println!("  {}", dep.key());
+    let lock_content = fs::read_to_string(&lock_path).into_diagnostic()?;
+    let lock_json: BTreeMap<String, Value> =
+        serde_json::from_str(&lock_content).into_diagnostic()?;
+
+    if lock_json.is_empty() {
+        println!("No dependencies in uptix.lock");
+        return Ok(());
+    }
+
+    println!("Dependencies in uptix.lock:");
+    for key in lock_json.keys() {
+        println!("  {}", key);
     }
 
     Ok(())
@@ -163,53 +166,44 @@ fn show_command(dependency: &str) -> Result<()> {
 }
 
 fn show_command_in_dir(root_path: &str, dependency: &str) -> Result<()> {
-    let all_files = util::discover_nix_files(root_path);
-    let mut found_dep: Option<Dependency> = None;
+    let lock_path = Path::new(root_path).join("uptix.lock");
 
-    for f in all_files {
-        let deps = collect_file_dependencies(f.to_str().unwrap())?;
-        for dep in deps {
-            if dep.matches(dependency) {
-                found_dep = Some(dep);
-                break;
-            }
-        }
-        if found_dep.is_some() {
-            break;
+    if !lock_path.exists() {
+        eprintln!("Error: No uptix.lock file found. Run 'uptix update' first.");
+        return Ok(());
+    }
+
+    let lock_content = fs::read_to_string(&lock_path).into_diagnostic()?;
+    let lock_file: BTreeMap<String, Value> =
+        serde_json::from_str(&lock_content).into_diagnostic()?;
+
+    // Find the dependency in the lock file
+    // Check for exact match first
+    if let Some(locked_value) = lock_file.get(dependency) {
+        println!("Dependency: {}", dependency);
+        println!("\nLocked version:");
+        println!(
+            "{}",
+            serde_json::to_string_pretty(locked_value).into_diagnostic()?
+        );
+        return Ok(());
+    }
+
+    // Try to find by partial match (for ergonomic patterns)
+    for (key, value) in &lock_file {
+        // Check if the key matches the ergonomic patterns
+        if key.contains(dependency)
+            || (dependency.contains("/") && key.contains(dependency))
+            || (dependency.contains(":") && key.contains(&dependency.replace(":", ":")))
+        {
+            println!("Dependency: {}", key);
+            println!("\nLocked version:");
+            println!("{}", serde_json::to_string_pretty(value).into_diagnostic()?);
+            return Ok(());
         }
     }
 
-    match found_dep {
-        Some(dep) => {
-            println!("Dependency: {}", dep.key());
-
-            let lock_path = Path::new(root_path).join("uptix.lock");
-            // Load lock file to show current locked version
-            if lock_path.exists() {
-                let lock_content = fs::read_to_string(&lock_path).into_diagnostic()?;
-                let lock_file: BTreeMap<String, Value> =
-                    serde_json::from_str(&lock_content).into_diagnostic()?;
-
-                if let Some(locked_value) = lock_file.get(&dep.key()) {
-                    println!("\nCurrent locked version:");
-                    println!(
-                        "{}",
-                        serde_json::to_string_pretty(locked_value).into_diagnostic()?
-                    );
-                } else {
-                    println!("\nNot currently locked.");
-                }
-            } else {
-                println!("\nNo lock file found.");
-            }
-        }
-        None => {
-            eprintln!(
-                "Error: Dependency '{}' not found in the project",
-                dependency
-            );
-        }
-    }
+    eprintln!("Error: Dependency '{}' not found in uptix.lock", dependency);
 
     Ok(())
 }
@@ -332,7 +326,7 @@ mod tests {
     fn test_list_with_no_dependencies() {
         let temp_dir = TempDir::new().unwrap();
 
-        // Run list command
+        // No lock file exists, should succeed with error message
         let result = list_command_in_dir(temp_dir.path().to_str().unwrap());
         assert!(result.is_ok());
     }
@@ -341,7 +335,7 @@ mod tests {
     fn test_show_dependency_not_found() {
         let temp_dir = TempDir::new().unwrap();
 
-        // Run show command
+        // No lock file exists, should succeed with error message
         let result = show_command_in_dir(temp_dir.path().to_str().unwrap(), "nonexistent:dep");
         assert!(result.is_ok()); // Command succeeds but prints error message
     }
@@ -371,15 +365,15 @@ mod tests {
     }
 
     #[test]
-    fn test_show_with_nix_file() {
+    fn test_show_with_lock_file() {
         let temp_dir = TempDir::new().unwrap();
         let temp_path = temp_dir.path();
 
-        // Create a simple nix file
-        let nix_content = r#"{
-            postgres = uptix.dockerImage "postgres:15";
+        // Create a lock file with a postgres dependency
+        let lock_content = r#"{
+            "postgres:15": "sha256:bc51cf4f1fe02cce7ed2370b20128a9b00b4eb804573a77d2a0d877aaa9c82b1"
         }"#;
-        fs::write(temp_path.join("test.nix"), nix_content).unwrap();
+        fs::write(temp_path.join("uptix.lock"), lock_content).unwrap();
 
         // Run show command
         let result = show_command_in_dir(temp_path.to_str().unwrap(), "postgres:15");
@@ -387,19 +381,16 @@ mod tests {
     }
 
     #[test]
-    fn test_list_with_multiple_files() {
+    fn test_list_with_lock_file() {
         let temp_dir = TempDir::new().unwrap();
         let temp_path = temp_dir.path();
 
-        // Create multiple nix files
-        let nix_content1 = r#"{
-            postgres = uptix.dockerImage "postgres:15";
+        // Create a lock file with multiple dependencies
+        let lock_content = r#"{
+            "postgres:15": "sha256:bc51cf4f1fe02cce7ed2370b20128a9b00b4eb804573a77d2a0d877aaa9c82b1",
+            "redis:latest": "sha256:472f4f5ed5d4258056093ea5745bc0ada37628b667d7db4fb12c2ffea74b2703"
         }"#;
-        let nix_content2 = r#"{
-            redis = uptix.dockerImage "redis:latest";
-        }"#;
-        fs::write(temp_path.join("db.nix"), nix_content1).unwrap();
-        fs::write(temp_path.join("cache.nix"), nix_content2).unwrap();
+        fs::write(temp_path.join("uptix.lock"), lock_content).unwrap();
 
         // Run list command
         let result = list_command_in_dir(temp_path.to_str().unwrap());
