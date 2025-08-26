@@ -17,7 +17,7 @@ fn uptix_binary() -> String {
 #[test]
 fn test_docker_pattern_update() {
     let temp_dir = TempDir::new().unwrap();
-    
+
     // Create nix file with Docker dependencies
     let nix_content = r#"{
         postgres = uptix.dockerImage "postgres:15";
@@ -25,14 +25,14 @@ fn test_docker_pattern_update() {
         ha = uptix.dockerImage "homeassistant/home-assistant:stable";
     }"#;
     fs::write(temp_dir.path().join("test.nix"), nix_content).unwrap();
-    
+
     // Test updating just postgres without tag
     let output = Command::new(uptix_binary())
         .current_dir(temp_dir.path())
         .args(&["update", "--dependency", "postgres"])
         .output()
         .expect("Failed to execute uptix");
-    
+
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("Found 1 dependencies matching 'postgres'"));
@@ -41,7 +41,7 @@ fn test_docker_pattern_update() {
 #[test]
 fn test_github_release_pattern_update() {
     let temp_dir = TempDir::new().unwrap();
-    
+
     // Create nix file with GitHub release dependencies
     let nix_content = r#"{
         uptix = uptix.githubRelease {
@@ -54,14 +54,14 @@ fn test_github_release_pattern_update() {
         };
     }"#;
     fs::write(temp_dir.path().join("test.nix"), nix_content).unwrap();
-    
+
     // Test updating using owner/repo pattern
     let output = Command::new(uptix_binary())
         .current_dir(temp_dir.path())
         .args(&["update", "--dependency", "luizribeiro/uptix"])
         .output()
         .expect("Failed to execute uptix");
-    
+
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("Found 1 dependencies matching 'luizribeiro/uptix'"));
@@ -70,7 +70,7 @@ fn test_github_release_pattern_update() {
 #[test]
 fn test_github_branch_pattern_update() {
     let temp_dir = TempDir::new().unwrap();
-    
+
     // Create nix file with GitHub branch dependencies
     let nix_content = r#"{
         uptixMain = uptix.githubBranch {
@@ -85,14 +85,14 @@ fn test_github_branch_pattern_update() {
         };
     }"#;
     fs::write(temp_dir.path().join("test.nix"), nix_content).unwrap();
-    
+
     // Test updating using owner/repo:branch pattern
     let output = Command::new(uptix_binary())
         .current_dir(temp_dir.path())
         .args(&["update", "--dependency", "luizribeiro/uptix:main"])
         .output()
         .expect("Failed to execute uptix");
-    
+
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("Found 1 dependencies matching 'luizribeiro/uptix:main'"));
@@ -101,7 +101,7 @@ fn test_github_branch_pattern_update() {
 #[test]
 fn test_ambiguous_pattern_handling() {
     let temp_dir = TempDir::new().unwrap();
-    
+
     // Create nix file with both release and branch for same repo
     let nix_content = r#"{
         uptixRelease = uptix.githubRelease {
@@ -115,14 +115,14 @@ fn test_ambiguous_pattern_handling() {
         };
     }"#;
     fs::write(temp_dir.path().join("test.nix"), nix_content).unwrap();
-    
+
     // Test that owner/repo pattern only matches release
     let output = Command::new(uptix_binary())
         .current_dir(temp_dir.path())
         .args(&["update", "--dependency", "luizribeiro/uptix"])
         .output()
         .expect("Failed to execute uptix");
-    
+
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("Found 1 dependencies matching 'luizribeiro/uptix'"));
@@ -131,20 +131,20 @@ fn test_ambiguous_pattern_handling() {
 #[test]
 fn test_nonexistent_dependency_pattern() {
     let temp_dir = TempDir::new().unwrap();
-    
+
     // Create nix file with some dependencies
     let nix_content = r#"{
         postgres = uptix.dockerImage "postgres:15";
     }"#;
     fs::write(temp_dir.path().join("test.nix"), nix_content).unwrap();
-    
+
     // Test updating non-existent dependency
     let output = Command::new(uptix_binary())
         .current_dir(temp_dir.path())
         .args(&["update", "--dependency", "mysql:8"])
         .output()
         .expect("Failed to execute uptix");
-    
+
     assert!(output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("Dependency 'mysql:8' not found"));

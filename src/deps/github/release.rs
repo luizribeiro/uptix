@@ -87,7 +87,7 @@ impl Lockable for GitHubRelease {
         if pattern == self.key() {
             return true;
         }
-        
+
         // Match owner/repo format (without branch, so it's a release)
         if !pattern.contains(':') && pattern.contains('/') {
             let pattern_parts: Vec<&str> = pattern.split('/').collect();
@@ -95,7 +95,7 @@ impl Lockable for GitHubRelease {
                 return pattern_parts[0] == self.owner && pattern_parts[1] == self.repo;
             }
         }
-        
+
         false
     }
 
@@ -215,25 +215,25 @@ mod tests {
             repo: "uptix".to_string(),
             ..Default::default()
         };
-        
+
         // Should match the internal key format
         assert!(release.matches("$GITHUB_RELEASE$:luizribeiro/uptix$"));
-        
+
         // Should match owner/repo format (for releases)
         assert!(release.matches("luizribeiro/uptix"));
-        
+
         // Should not match with branch format
         assert!(!release.matches("luizribeiro/uptix:main"));
-        
+
         // Should not match different repos
         assert!(!release.matches("other/repo"));
         assert!(!release.matches("luizribeiro/other"));
-        
+
         // Should not match partial names
         assert!(!release.matches("luizribeiro"));
         assert!(!release.matches("uptix"));
     }
-    
+
     #[test]
     fn test_github_release_with_flags_matches() {
         let release = GitHubRelease {
@@ -242,10 +242,10 @@ mod tests {
             fetchSubmodules: Some(true),
             ..Default::default()
         };
-        
+
         // Should match the internal key format with flags
         assert!(release.matches("$GITHUB_RELEASE$:luizribeiro/uptix$f"));
-        
+
         // Should still match the simple format
         assert!(release.matches("luizribeiro/uptix"));
     }

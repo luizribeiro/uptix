@@ -164,7 +164,7 @@ impl Lockable for Docker {
 
     fn matches(&self, pattern: &str) -> bool {
         // Match against the full name (e.g., "postgres:15")
-        self.name == pattern || 
+        self.name == pattern ||
         // Also match without tag if pattern doesn't include one and it's a Docker Hub image
         (self.registry == DEFAULT_REGISTRY && self.image == pattern && !pattern.contains(':'))
     }
@@ -195,22 +195,22 @@ mod tests {
             name: "postgres:15".to_string(),
             use_https: true,
         };
-        
+
         // Should match full name with tag
         assert!(docker.matches("postgres:15"));
-        
+
         // Should match just the image name without tag
         assert!(docker.matches("postgres"));
-        
+
         // Should not match different image
         assert!(!docker.matches("mysql:8"));
         assert!(!docker.matches("mysql"));
-        
+
         // Should not match partial names
         assert!(!docker.matches("post"));
     }
-    
-    #[test] 
+
+    #[test]
     fn test_docker_with_registry_matches() {
         let docker = Docker {
             registry: "gcr.io".to_string(),
@@ -219,7 +219,7 @@ mod tests {
             name: "gcr.io/my-project/my-image:latest".to_string(),
             use_https: true,
         };
-        
+
         assert!(docker.matches("gcr.io/my-project/my-image:latest"));
         assert!(!docker.matches("my-project/my-image:latest"));
         assert!(!docker.matches("my-project/my-image"));

@@ -94,20 +94,20 @@ impl Lockable for GitHubBranch {
         if pattern == self.key() {
             return true;
         }
-        
+
         // Match owner/repo:branch format
         if pattern.contains('/') && pattern.matches(':').count() == 1 {
             let parts: Vec<&str> = pattern.split(':').collect();
             if parts.len() == 2 {
                 let repo_parts: Vec<&str> = parts[0].split('/').collect();
                 if repo_parts.len() == 2 {
-                    return repo_parts[0] == self.owner && 
-                           repo_parts[1] == self.repo && 
-                           parts[1] == self.branch;
+                    return repo_parts[0] == self.owner
+                        && repo_parts[1] == self.repo
+                        && parts[1] == self.branch;
                 }
             }
         }
-        
+
         false
     }
 
@@ -249,43 +249,43 @@ mod tests {
             branch: "main".to_string(),
             ..Default::default()
         };
-        
+
         // Should match the internal key format
         assert!(branch.matches("$GITHUB_BRANCH$:luizribeiro/uptix:main$"));
-        
+
         // Should match owner/repo:branch format
         assert!(branch.matches("luizribeiro/uptix:main"));
-        
+
         // Should not match without branch
         assert!(!branch.matches("luizribeiro/uptix"));
-        
+
         // Should not match different branch
         assert!(!branch.matches("luizribeiro/uptix:develop"));
-        
+
         // Should not match different repos
         assert!(!branch.matches("other/repo:main"));
         assert!(!branch.matches("luizribeiro/other:main"));
-        
+
         // Should not match partial names
         assert!(!branch.matches("luizribeiro"));
         assert!(!branch.matches("uptix"));
         assert!(!branch.matches("main"));
     }
-    
+
     #[test]
     fn test_github_branch_with_flags_matches() {
         let branch = GitHubBranch {
             owner: "luizribeiro".to_string(),
-            repo: "uptix".to_string(), 
+            repo: "uptix".to_string(),
             branch: "main".to_string(),
             fetchSubmodules: Some(true),
             deepClone: Some(true),
             ..Default::default()
         };
-        
+
         // Should match the internal key format with flags
         assert!(branch.matches("$GITHUB_BRANCH$:luizribeiro/uptix:main$fd"));
-        
+
         // Should still match the simple format
         assert!(branch.matches("luizribeiro/uptix:main"));
     }
