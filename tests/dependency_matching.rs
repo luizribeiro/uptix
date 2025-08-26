@@ -69,33 +69,89 @@ fn test_github_release_pattern_update() {
 
 #[test]
 fn test_github_branch_pattern_update() {
+    use std::env;
+    
     let temp_dir = TempDir::new().unwrap();
 
     // Create nix file with GitHub branch dependencies
     let nix_content = r#"{
         uptixMain = uptix.githubBranch {
             owner = "luizribeiro";
-            repo = "uptix";
+            repo = "hello-world-rs";
             branch = "main";
         };
         uptixDev = uptix.githubBranch {
             owner = "luizribeiro";
-            repo = "uptix";
+            repo = "hello-world-rs";
             branch = "develop";
         };
     }"#;
     fs::write(temp_dir.path().join("test.nix"), nix_content).unwrap();
 
+    // Create a mock lock file with existing entries to prevent actual API calls
+    let lock_content = r#"{
+        "$GITHUB_BRANCH$:luizribeiro/hello-world-rs:main$": {
+            "metadata": {
+                "name": "luizribeiro/hello-world-rs",
+                "selected_version": "main",
+                "resolved_version": "abc123",
+                "friendly_version": "abc123",
+                "dep_type": "github-branch",
+                "description": "GitHub branch main from luizribeiro/hello-world-rs"
+            },
+            "lock": {
+                "owner": "luizribeiro",
+                "repo": "hello-world-rs",
+                "rev": "abc123",
+                "sha256": "0000000000000000000000000000000000000000000000000000",
+                "fetchSubmodules": false,
+                "deepClone": false,
+                "leaveDotGit": false
+            }
+        },
+        "$GITHUB_BRANCH$:luizribeiro/hello-world-rs:develop$": {
+            "metadata": {
+                "name": "luizribeiro/hello-world-rs",
+                "selected_version": "develop", 
+                "resolved_version": "def456",
+                "friendly_version": "def456",
+                "dep_type": "github-branch",
+                "description": "GitHub branch develop from luizribeiro/hello-world-rs"
+            },
+            "lock": {
+                "owner": "luizribeiro",
+                "repo": "hello-world-rs",
+                "rev": "def456",
+                "sha256": "0000000000000000000000000000000000000000000000000000",
+                "fetchSubmodules": false,
+                "deepClone": false,
+                "leaveDotGit": false
+            }
+        }
+    }"#;
+    fs::write(temp_dir.path().join("uptix.lock"), lock_content).unwrap();
+
+    // Set a fake GitHub token to avoid rate limiting issues in CI
+    env::set_var("GITHUB_TOKEN", "test-token");
+
     // Test updating using owner/repo:branch pattern
     let output = Command::new(uptix_binary())
         .current_dir(temp_dir.path())
-        .args(&["update", "--dependency", "luizribeiro/uptix:main"])
+        .args(&["update", "--dependency", "luizribeiro/hello-world-rs:main"])
         .output()
         .expect("Failed to execute uptix");
 
+    // Clean up
+    env::remove_var("GITHUB_TOKEN");
+
+    if !output.status.success() {
+        eprintln!("Command failed with status: {}", output.status);
+        eprintln!("STDOUT: {}", String::from_utf8_lossy(&output.stdout));
+        eprintln!("STDERR: {}", String::from_utf8_lossy(&output.stderr));
+    }
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Found 1 dependencies matching 'luizribeiro/uptix:main'"));
+    assert!(stdout.contains("Found 1 dependencies matching 'luizribeiro/hello-world-rs:main'"));
 }
 
 #[test]
