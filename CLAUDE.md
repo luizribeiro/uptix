@@ -10,24 +10,36 @@ uptix is a Rust tool for pinning and updating external dependencies in NixOS con
 
 ### Usage
 ```bash
-# Update all dependencies
+# Update all dependencies (default if no command specified)
 uptix
+uptix update
 
 # Update a single dependency - Docker images
-uptix --dependency "postgres:15"
-uptix --dependency "homeassistant/home-assistant:stable"
+uptix update --dependency "postgres:15"
+uptix update --dependency "homeassistant/home-assistant:stable"
 
 # Update a single dependency - GitHub releases (matches uptix.githubRelease)
-uptix --dependency "owner/repo"
-uptix --dependency "luizribeiro/hello-world-rs"
+uptix update --dependency "owner/repo"
+uptix update --dependency "luizribeiro/hello-world-rs"
 
 # Update a single dependency - GitHub branches (matches uptix.githubBranch)
-uptix --dependency "owner/repo:branch"
-uptix --dependency "luizribeiro/hello-world-rs:main"
+uptix update --dependency "owner/repo:branch"
+uptix update --dependency "luizribeiro/hello-world-rs:main"
 
 # You can also use the internal key format if needed
-uptix --dependency '$GITHUB_RELEASE$:owner/repo$'
-uptix --dependency '$GITHUB_BRANCH$:owner/repo:branch$'
+uptix update --dependency '$GITHUB_RELEASE$:owner/repo$'
+uptix update --dependency '$GITHUB_BRANCH$:owner/repo:branch$'
+
+# List all dependencies
+uptix list
+
+# Show detailed information about a dependency
+uptix show "postgres:15"
+uptix show "owner/repo"
+uptix show "owner/repo:branch"
+
+# Initialize an empty lock file
+uptix init
 ```
 
 ### Development
