@@ -1,6 +1,6 @@
 use crate::deps::assert_kind;
 use crate::deps::github;
-use crate::deps::{DependencyMetadata, Lockable};
+use crate::deps::{DependencyMetadata, LockEntry, Lockable};
 use crate::error::Error;
 use crate::util;
 use crate::util::ParsingContext;
@@ -111,32 +111,7 @@ impl Lockable for GitHubBranch {
         false
     }
 
-    fn base_metadata(&self) -> DependencyMetadata {
-        DependencyMetadata {
-            name: format!("{}/{}", self.owner, self.repo),
-            version_selector: Some(self.branch.clone()),
-            resolved_version: None, // Will be filled in by update_metadata_with_lock
-            dep_type: "github-branch".to_string(),
-            description: format!(
-                "GitHub branch {} from {}/{}",
-                self.branch, self.owner, self.repo
-            ),
-        }
-    }
-
-    fn update_metadata_with_lock(
-        &self,
-        metadata: &mut DependencyMetadata,
-        lock_data: &serde_json::Value,
-    ) {
-        // Extract the rev field which contains the commit SHA
-        if let Some(rev) = lock_data.get("rev").and_then(|v| v.as_str()) {
-            // Show first 7 characters of SHA for brevity
-            metadata.resolved_version = Some(rev.chars().take(7).collect());
-        }
-    }
-
-    async fn lock(&self) -> Result<Box<dyn erased_serde::Serialize>, Error> {
+    async fn lock_with_metadata(&self) -> Result<LockEntry, Error> {
         let rev = fetch_github_branch_info(self).await?.commit.sha;
         let sha256 = match &self.override_nix_sha256 {
             Some(s) => s.to_string(),
@@ -149,15 +124,32 @@ impl Lockable for GitHubBranch {
                 self.leaveDotGit,
             )?,
         };
-        return Ok(Box::new(github::GitHubLock {
+        let lock_data = github::GitHubLock {
             owner: self.owner.clone(),
             repo: self.repo.clone(),
-            rev,
+            rev: rev.clone(),
             sha256,
             fetchSubmodules: self.fetchSubmodules.unwrap_or(false),
             deepClone: self.deepClone.unwrap_or(false),
             leaveDotGit: self.leaveDotGit.unwrap_or(false),
-        }));
+        };
+
+        let metadata = DependencyMetadata {
+            name: format!("{}/{}", self.owner, self.repo),
+            selected_version: Some(self.branch.clone()),
+            resolved_version: Some(rev.clone()),
+            friendly_version: Some(rev.chars().take(7).collect()), // Show short SHA
+            dep_type: "github-branch".to_string(),
+            description: format!(
+                "GitHub branch {} from {}/{}",
+                self.branch, self.owner, self.repo
+            ),
+        };
+
+        Ok(LockEntry {
+            metadata,
+            lock: serde_json::to_value(lock_data)?,
+        })
     }
 }
 
@@ -247,8 +239,8 @@ mod tests {
             ),
             ..Default::default()
         };
-        let lock = dependency.lock().await.unwrap();
-        let lock_value = serde_json::to_value(lock).unwrap();
+        let lock_entry = dependency.lock_with_metadata().await.unwrap();
+        let lock_value = lock_entry.lock;
 
         assert_eq!(
             lock_value,

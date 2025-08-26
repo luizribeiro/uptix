@@ -1,5 +1,13 @@
 {
   "$GITHUB_BRANCH$:luizribeiro/hello-world-rs:main$": {
+    "metadata": {
+      "name": "luizribeiro/hello-world-rs",
+      "selected_version": "main",
+      "resolved_version": "69a9b5193833ea3c1efc390b1bba04a7e1862e78",
+      "friendly_version": "69a9b51",
+      "dep_type": "github-branch",
+      "description": "GitHub branch main from luizribeiro/hello-world-rs"
+    },
     "lock": {
       "deepClone": false,
       "fetchSubmodules": false,
@@ -8,16 +16,17 @@
       "repo": "hello-world-rs",
       "rev": "69a9b5193833ea3c1efc390b1bba04a7e1862e78",
       "sha256": "0fqn3c0zpg5qnswxng18px3h5afhrh7jwr61vyzpgj3ap4knbb4v"
-    },
-    "metadata": {
-      "dep_type": "github-branch",
-      "description": "GitHub branch main from luizribeiro/hello-world-rs",
-      "name": "luizribeiro/hello-world-rs",
-      "resolved_version": "69a9b51",
-      "version_selector": "main"
     }
   },
   "$GITHUB_RELEASE$:luizribeiro/hello-world-rs$": {
+    "metadata": {
+      "name": "luizribeiro/hello-world-rs",
+      "selected_version": "latest",
+      "resolved_version": "v0.1.0",
+      "friendly_version": "v0.1.0",
+      "dep_type": "github-release",
+      "description": "GitHub release from luizribeiro/hello-world-rs"
+    },
     "lock": {
       "deepClone": false,
       "fetchSubmodules": false,
@@ -26,43 +35,39 @@
       "repo": "hello-world-rs",
       "rev": "v0.1.0",
       "sha256": "0fqn3c0zpg5qnswxng18px3h5afhrh7jwr61vyzpgj3ap4knbb4v"
-    },
-    "metadata": {
-      "dep_type": "github-release",
-      "description": "GitHub release from luizribeiro/hello-world-rs",
-      "name": "luizribeiro/hello-world-rs",
-      "resolved_version": "v0.1.0",
-      "version_selector": "latest"
     }
   },
   "homeassistant/home-assistant:stable": {
-    "lock": "sha256:2eb83307a08de3287822b648fce4cbf1364423b55f2af623c149c6b21c2cef00",
     "metadata": {
-      "dep_type": "docker",
-      "description": "Docker image homeassistant/home-assistant:stable from registry-1.docker.io",
       "name": "homeassistant/home-assistant",
-      "resolved_version": "sha256:2eb83307a08d",
-      "version_selector": "stable"
-    }
+      "selected_version": "stable",
+      "resolved_version": "sha256:2eb83307a08de3287822b648fce4cbf1364423b55f2af623c149c6b21c2cef00",
+      "friendly_version": "sha256:2eb83307a08d",
+      "dep_type": "docker",
+      "description": "Docker image homeassistant/home-assistant:stable from registry-1.docker.io"
+    },
+    "lock": "sha256:2eb83307a08de3287822b648fce4cbf1364423b55f2af623c149c6b21c2cef00"
   },
   "koenkk/zigbee2mqtt:latest": {
-    "lock": "sha256:472f4f5ed5d4258056093ea5745bc0ada37628b667d7db4fb12c2ffea74b2703",
     "metadata": {
-      "dep_type": "docker",
-      "description": "Docker image koenkk/zigbee2mqtt:latest from registry-1.docker.io",
       "name": "koenkk/zigbee2mqtt",
-      "resolved_version": "sha256:472f4f5ed5d4",
-      "version_selector": "latest"
-    }
+      "selected_version": "latest",
+      "resolved_version": "sha256:472f4f5ed5d4258056093ea5745bc0ada37628b667d7db4fb12c2ffea74b2703",
+      "friendly_version": "sha256:472f4f5ed5d4",
+      "dep_type": "docker",
+      "description": "Docker image koenkk/zigbee2mqtt:latest from registry-1.docker.io"
+    },
+    "lock": "sha256:472f4f5ed5d4258056093ea5745bc0ada37628b667d7db4fb12c2ffea74b2703"
   },
   "postgres:15": {
-    "lock": "sha256:bc51cf4f1fe02cce7ed2370b20128a9b00b4eb804573a77d2a0d877aaa9c82b1",
     "metadata": {
-      "dep_type": "docker",
-      "description": "Docker image postgres:15 from registry-1.docker.io",
       "name": "postgres",
-      "resolved_version": "sha256:bc51cf4f1fe0",
-      "version_selector": "15"
-    }
+      "selected_version": "15",
+      "resolved_version": "sha256:bc51cf4f1fe02cce7ed2370b20128a9b00b4eb804573a77d2a0d877aaa9c82b1",
+      "friendly_version": "sha256:bc51cf4f1fe0",
+      "dep_type": "docker",
+      "description": "Docker image postgres:15 from registry-1.docker.io"
+    },
+    "lock": "sha256:bc51cf4f1fe02cce7ed2370b20128a9b00b4eb804573a77d2a0d877aaa9c82b1"
   }
 }

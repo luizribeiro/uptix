@@ -92,7 +92,7 @@ fn test_list_with_dependencies() {
         "postgres:15": {
             "metadata": {
                 "name": "postgres",
-                "version_selector": "15",
+                "selected_version": "15",
                 "resolved_version": "sha256:bc51cf4f1fe0",
                 "dep_type": "docker",
                 "description": "Docker image postgres:15"
@@ -102,7 +102,7 @@ fn test_list_with_dependencies() {
         "redis:latest": {
             "metadata": {
                 "name": "redis",
-                "version_selector": "latest",
+                "selected_version": "latest",
                 "resolved_version": "sha256:472f4f5ed5d4",
                 "dep_type": "docker",
                 "description": "Docker image redis:latest"
@@ -153,7 +153,7 @@ fn test_show_dependency_found() {
         "postgres:15": {
             "metadata": {
                 "name": "postgres",
-                "version_selector": "15",
+                "selected_version": "15",
                 "resolved_version": "sha256:somehash",
                 "dep_type": "docker",
                 "description": "Docker image postgres:15"
@@ -173,7 +173,7 @@ fn test_show_dependency_found() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("Dependency Key: postgres:15"));
     assert!(stdout.contains("Name: postgres"));
-    assert!(stdout.contains("Version Selector: 15"));
+    assert!(stdout.contains("Selected Version: 15"));
     assert!(stdout.contains("Resolved Version: sha256:somehash"));
     assert!(stdout.contains("Type: docker"));
 }

@@ -1,6 +1,6 @@
 use crate::deps::assert_kind;
 use crate::deps::github;
-use crate::deps::{DependencyMetadata, Lockable};
+use crate::deps::{DependencyMetadata, LockEntry, Lockable};
 use crate::error::Error;
 use crate::util;
 use crate::util::ParsingContext;
@@ -99,28 +99,7 @@ impl Lockable for GitHubRelease {
         false
     }
 
-    fn base_metadata(&self) -> DependencyMetadata {
-        DependencyMetadata {
-            name: format!("{}/{}", self.owner, self.repo),
-            version_selector: Some("latest".to_string()),
-            resolved_version: None, // Will be filled in by update_metadata_with_lock
-            dep_type: "github-release".to_string(),
-            description: format!("GitHub release from {}/{}", self.owner, self.repo),
-        }
-    }
-
-    fn update_metadata_with_lock(
-        &self,
-        metadata: &mut DependencyMetadata,
-        lock_data: &serde_json::Value,
-    ) {
-        // Extract the rev field which contains the release tag
-        if let Some(rev) = lock_data.get("rev").and_then(|v| v.as_str()) {
-            metadata.resolved_version = Some(rev.to_string());
-        }
-    }
-
-    async fn lock(&self) -> Result<Box<dyn erased_serde::Serialize>, Error> {
+    async fn lock_with_metadata(&self) -> Result<LockEntry, Error> {
         let rev = fetch_github_latest_release(self).await?.tag_name;
         let sha256 = match &self.override_nix_sha256 {
             Some(s) => s.to_string(),
@@ -133,15 +112,29 @@ impl Lockable for GitHubRelease {
                 self.leaveDotGit,
             )?,
         };
-        return Ok(Box::new(github::GitHubLock {
+        let lock_data = github::GitHubLock {
             owner: self.owner.clone(),
             repo: self.repo.clone(),
-            rev,
+            rev: rev.clone(),
             sha256,
             fetchSubmodules: self.fetchSubmodules.unwrap_or(false),
             deepClone: self.deepClone.unwrap_or(false),
             leaveDotGit: self.leaveDotGit.unwrap_or(false),
-        }));
+        };
+
+        let metadata = DependencyMetadata {
+            name: format!("{}/{}", self.owner, self.repo),
+            selected_version: Some("latest".to_string()),
+            resolved_version: Some(rev.clone()),
+            friendly_version: Some(rev), // GitHub release tags are already human-friendly
+            dep_type: "github-release".to_string(),
+            description: format!("GitHub release from {}/{}", self.owner, self.repo),
+        };
+
+        Ok(LockEntry {
+            metadata,
+            lock: serde_json::to_value(lock_data)?,
+        })
     }
 }
 
@@ -210,8 +203,8 @@ mod tests {
             ),
             ..Default::default()
         };
-        let lock = dependency.lock().await.unwrap();
-        let lock_value = serde_json::to_value(lock).unwrap();
+        let lock_entry = dependency.lock_with_metadata().await.unwrap();
+        let lock_value = lock_entry.lock;
 
         assert_eq!(
             lock_value,

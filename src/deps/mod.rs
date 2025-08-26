@@ -9,7 +9,6 @@ use crate::error::Error;
 use crate::util::ParsingContext;
 use async_trait::async_trait;
 use enum_as_inner::EnumAsInner;
-use erased_serde::Serialize;
 use rnix::{SyntaxKind, SyntaxNode};
 use serde::{Deserialize, Serialize as SerdeSerialize};
 use std::collections::BTreeMap;
@@ -26,9 +25,11 @@ pub enum Dependency {
 pub struct DependencyMetadata {
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub version_selector: Option<String>, // e.g., "latest", "stable", "15", "main"
+    pub selected_version: Option<String>, // What user specified: "latest", "stable", "15", "main"
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub resolved_version: Option<String>, // e.g., actual SHA, digest, or release tag
+    pub resolved_version: Option<String>, // Technical identifier: SHA, digest, or release tag
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub friendly_version: Option<String>, // Human-readable version: "15.4-alpine", "2024-01-15", etc
     pub dep_type: String,
     pub description: String,
 }
@@ -46,29 +47,7 @@ pub type LockFile = BTreeMap<String, LockEntry>;
 pub trait Lockable {
     fn key(&self) -> String;
     fn matches(&self, pattern: &str) -> bool;
-    fn base_metadata(&self) -> DependencyMetadata;
-    async fn lock(&self) -> Result<Box<dyn Serialize>, Error>;
-    async fn lock_with_metadata(&self) -> Result<LockEntry, Error> {
-        let lock_data = self.lock().await?;
-        let json_value = serde_json::to_value(&*lock_data)
-            .map_err(|e| Error::StringError(format!("Failed to serialize lock data: {}", e)))?;
-
-        // Get base metadata and then update with resolved version
-        let mut metadata = self.base_metadata();
-        self.update_metadata_with_lock(&mut metadata, &json_value);
-
-        Ok(LockEntry {
-            metadata,
-            lock: json_value,
-        })
-    }
-
-    // Each dependency type implements this to extract resolved version from lock data
-    fn update_metadata_with_lock(
-        &self,
-        metadata: &mut DependencyMetadata,
-        lock_data: &serde_json::Value,
-    );
+    async fn lock_with_metadata(&self) -> Result<LockEntry, Error>;
 }
 
 impl Dependency {
@@ -97,13 +76,6 @@ impl Dependency {
         }
     }
 
-    pub async fn lock(&self) -> Result<Box<dyn Serialize>, Error> {
-        match self {
-            Dependency::Docker(d) => d.lock().await,
-            Dependency::GitHubBranch(d) => d.lock().await,
-            Dependency::GitHubRelease(d) => d.lock().await,
-        }
-    }
 
     pub fn matches(&self, pattern: &str) -> bool {
         match self {
@@ -113,13 +85,6 @@ impl Dependency {
         }
     }
 
-    pub fn base_metadata(&self) -> DependencyMetadata {
-        match self {
-            Dependency::Docker(d) => d.base_metadata(),
-            Dependency::GitHubBranch(d) => d.base_metadata(),
-            Dependency::GitHubRelease(d) => d.base_metadata(),
-        }
-    }
 
     pub async fn lock_with_metadata(&self) -> Result<LockEntry, Error> {
         match self {

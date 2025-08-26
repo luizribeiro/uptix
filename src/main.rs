@@ -158,12 +158,13 @@ fn list_command_in_dir(root_path: &str) -> Result<()> {
     for (_key, entry) in &lock_file {
         let metadata = &entry.metadata;
 
-        let selector = metadata.version_selector.as_deref().unwrap_or("unknown");
+        let selector = metadata.selected_version.as_deref().unwrap_or("unknown");
         let resolved = metadata.resolved_version.as_deref().unwrap_or("pending");
+        let friendly = metadata.friendly_version.as_deref().unwrap_or(resolved);
 
         println!(
             "{:<35} {:<20} {:<20} {:<15}",
-            metadata.name, selector, resolved, metadata.dep_type
+            metadata.name, selector, friendly, metadata.dep_type
         );
     }
 
@@ -216,14 +217,18 @@ fn display_dependency_details(key: &str, entry: &LockEntry) -> Result<()> {
     println!();
     println!("Name: {}", metadata.name);
 
-    if let Some(selector) = &metadata.version_selector {
-        println!("Version Selector: {}", selector);
+    if let Some(selector) = &metadata.selected_version {
+        println!("Selected Version: {}", selector);
     }
 
     if let Some(resolved) = &metadata.resolved_version {
         println!("Resolved Version: {}", resolved);
     } else {
         println!("Resolved Version: pending");
+    }
+
+    if let Some(friendly) = &metadata.friendly_version {
+        println!("Friendly Version: {}", friendly);
     }
 
     println!("Type: {}", metadata.dep_type);
@@ -404,7 +409,7 @@ mod tests {
             "postgres:15": {
                 "metadata": {
                     "name": "postgres",
-                    "version_selector": "15",
+                    "selected_version": "15",
                     "resolved_version": "sha256:bc51cf4f1fe0",
                     "dep_type": "docker",
                     "description": "Docker image postgres:15"
@@ -429,7 +434,7 @@ mod tests {
             "postgres:15": {
                 "metadata": {
                     "name": "postgres",
-                    "version_selector": "15",
+                    "selected_version": "15",
                     "resolved_version": "sha256:bc51cf4f1fe0",
                     "dep_type": "docker",
                     "description": "Docker image postgres:15"
@@ -439,7 +444,7 @@ mod tests {
             "redis:latest": {
                 "metadata": {
                     "name": "redis",
-                    "version_selector": "latest",
+                    "selected_version": "latest",
                     "resolved_version": "sha256:472f4f5ed5d4",
                     "dep_type": "docker",
                     "description": "Docker image redis:latest"

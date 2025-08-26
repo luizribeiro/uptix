@@ -1,10 +1,9 @@
-use crate::deps::{assert_kind, DependencyMetadata, Lockable};
+use crate::deps::{assert_kind, DependencyMetadata, LockEntry, Lockable};
 use crate::error::Error;
 use crate::util::ParsingContext;
 use async_trait::async_trait;
 use dkregistry::mediatypes::MediaTypes;
 use dkregistry::v2::Client;
-use erased_serde::Serialize;
 use regex::Regex;
 use rnix::{SyntaxKind, SyntaxNode};
 
@@ -169,45 +168,37 @@ impl Lockable for Docker {
         (self.registry == DEFAULT_REGISTRY && self.image == pattern && !pattern.contains(':'))
     }
 
-    fn base_metadata(&self) -> DependencyMetadata {
-        DependencyMetadata {
+    async fn lock_with_metadata(&self) -> Result<LockEntry, Error> {
+        // Fetch the digest
+        let digest = match self.latest_digest().await? {
+            Some(d) => d,
+            None => return Err(Error::StringError(format!(
+                "Could not find digest for image {} on registry",
+                self.name,
+            ))),
+        };
+
+        // Create metadata with all fields populated
+        let metadata = DependencyMetadata {
             name: self.image.clone(),
-            version_selector: Some(self.tag.clone()),
-            resolved_version: None, // Will be filled in by update_metadata_with_lock
+            selected_version: Some(self.tag.clone()),
+            resolved_version: Some(digest.clone()),
+            friendly_version: Some(if let Some(hash_part) = digest.strip_prefix("sha256:") {
+                format!("sha256:{}", &hash_part[..12.min(hash_part.len())])
+            } else {
+                digest.clone()
+            }),
             dep_type: "docker".to_string(),
             description: format!(
                 "Docker image {}:{} from {}",
                 self.image, self.tag, self.registry
             ),
-        }
-    }
-
-    fn update_metadata_with_lock(
-        &self,
-        metadata: &mut DependencyMetadata,
-        lock_data: &serde_json::Value,
-    ) {
-        // Docker lock data is just a string with the digest
-        if let Some(digest) = lock_data.as_str() {
-            // Extract just the hash part of the digest
-            if let Some(hash_part) = digest.strip_prefix("sha256:") {
-                // Take first 12 characters for display
-                metadata.resolved_version =
-                    Some(format!("sha256:{}", &hash_part[..12.min(hash_part.len())]));
-            } else {
-                metadata.resolved_version = Some(digest.to_string());
-            }
-        }
-    }
-
-    async fn lock(&self) -> Result<Box<dyn Serialize>, Error> {
-        return match self.latest_digest().await? {
-            Some(digest) => Ok(Box::new(digest)),
-            None => Err(Error::StringError(format!(
-                "Could not find digest for image {} on registry",
-                self.name,
-            ))),
         };
+
+        Ok(LockEntry {
+            metadata,
+            lock: serde_json::Value::String(digest),
+        })
     }
 }
 
@@ -340,10 +331,10 @@ mod tests {
             tag: "stable".to_string(),
             use_https: false,
         };
-        let lock = dependency.lock().await.unwrap();
-        let lock_value = serde_json::to_value(lock).unwrap();
-
-        assert_eq!(lock_value.as_str().unwrap(), "sha256:foobar");
+        let lock_entry = dependency.lock_with_metadata().await.unwrap();
+        assert_eq!(lock_entry.metadata.name, "homeassistant/home-assistant");
+        assert_eq!(lock_entry.metadata.selected_version, Some("stable".to_string()));
+        assert_eq!(lock_entry.lock.as_str().unwrap(), "sha256:foobar");
         mockito::reset();
     }
 
