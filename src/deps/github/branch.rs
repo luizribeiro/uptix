@@ -51,7 +51,6 @@ struct GitHubBranchInfo {
 }
 
 async fn fetch_github_branch_info(dependency: &GitHubBranch) -> Result<GitHubBranchInfo, Error> {
-    let client = reqwest::Client::new();
     let url_as_str = format!(
         "{}://{}/repos/{}/{}/branches/{}",
         dependency
@@ -67,13 +66,7 @@ async fn fetch_github_branch_info(dependency: &GitHubBranch) -> Result<GitHubBra
         dependency.branch,
     );
     let url = reqwest::Url::parse(&url_as_str).unwrap();
-    let response = client
-        .request(reqwest::Method::GET, url)
-        .header(reqwest::header::USER_AGENT, util::user_agent())
-        .send()
-        .await?
-        .text()
-        .await?;
+    let response = github::github_api_request(url).await?;
     return Ok(serde_json::from_str(&response)?);
 }
 
@@ -256,6 +249,69 @@ mod tests {
         );
 
         mockito::reset();
+    }
+
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn it_uses_github_token_when_set() {
+        use std::env;
+        
+        // Set GITHUB_TOKEN for this test
+        env::set_var("GITHUB_TOKEN", "test-token-12345");
+        
+        let address = mockito::server_address().to_string();
+        let _branch_mock = mockito::mock("GET", "/repos/luizribeiro/uptix/branches/main")
+            .match_header(
+                &reqwest::header::USER_AGENT.to_string(),
+                mockito::Matcher::Regex(r"^uptix/[0-9.]+$".to_string()),
+            )
+            .match_header(
+                &reqwest::header::AUTHORIZATION.to_string(),
+                "Bearer test-token-12345",
+            )
+            .with_status(200)
+            .with_body(
+                r#"{
+                    "commit": {
+                        "sha": "b28012d8b7f8ef54492c66f3a77074391e9818b9"
+                    }
+                }"#,
+            )
+            .create();
+
+        let dependency = GitHubBranch {
+            owner: "luizribeiro".to_string(),
+            repo: "uptix".to_string(),
+            branch: "main".to_string(),
+            override_scheme: Some("http".to_string()),
+            override_domain: Some(address),
+            override_nix_sha256: Some(
+                "1vxzg4wdjvfnc7fjqr9flza5y7gh69w0bpf7mhyf06ddcvq3p00j".to_string(),
+            ),
+            ..Default::default()
+        };
+        let result = dependency.lock_with_metadata().await;
+        
+        // Clean up first to ensure it happens even on panic
+        env::remove_var("GITHUB_TOKEN");
+        mockito::reset();
+        
+        // Now check the result
+        let lock_entry = result.unwrap();
+        let lock_value = lock_entry.lock;
+
+        assert_eq!(
+            lock_value,
+            json!({
+                "owner": "luizribeiro",
+                "repo": "uptix",
+                "rev": "b28012d8b7f8ef54492c66f3a77074391e9818b9",
+                "sha256": "1vxzg4wdjvfnc7fjqr9flza5y7gh69w0bpf7mhyf06ddcvq3p00j",
+                "fetchSubmodules": false,
+                "deepClone": false,
+                "leaveDotGit": false,
+            }),
+        );
     }
 
     #[test]

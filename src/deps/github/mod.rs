@@ -2,7 +2,9 @@ pub mod branch;
 pub mod release;
 
 use crate::error::Error;
+use crate::util;
 use serde::{Deserialize, Serialize};
+use std::env;
 use std::process::Command;
 
 #[derive(Serialize, Deserialize)]
@@ -75,4 +77,30 @@ pub fn flags(
             ""
         },
     );
+}
+
+pub async fn github_api_request(url: reqwest::Url) -> Result<String, Error> {
+    let client = reqwest::Client::new();
+    let mut request = client
+        .request(reqwest::Method::GET, url)
+        .header(reqwest::header::USER_AGENT, util::user_agent());
+
+    // Add GitHub token if available
+    if let Ok(token) = env::var("GITHUB_TOKEN") {
+        request = request.header(reqwest::header::AUTHORIZATION, format!("Bearer {}", token));
+    }
+
+    let response = request.send().await?;
+    
+    // Check status before reading body
+    if !response.status().is_success() {
+        let status = response.status();
+        let body = response.text().await?;
+        return Err(Error::StringError(format!(
+            "GitHub API request failed with status {}: {}",
+            status, body
+        )));
+    }
+    
+    Ok(response.text().await?)
 }
