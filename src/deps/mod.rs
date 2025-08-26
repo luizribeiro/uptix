@@ -11,6 +11,7 @@ use async_trait::async_trait;
 use enum_as_inner::EnumAsInner;
 use erased_serde::Serialize;
 use rnix::{SyntaxKind, SyntaxNode};
+use serde::{Deserialize, Serialize as SerdeSerialize};
 use std::fs;
 
 #[derive(EnumAsInner, Clone, Debug)]
@@ -20,11 +21,35 @@ pub enum Dependency {
     GitHubRelease(GitHubRelease),
 }
 
+#[derive(Clone, Debug, SerdeSerialize, Deserialize)]
+pub struct DependencyMetadata {
+    pub name: String,
+    pub version: String,
+    pub dep_type: String,
+    pub description: String,
+}
+
+#[derive(Clone, Debug, SerdeSerialize, Deserialize)]
+pub struct LockEntry {
+    pub metadata: DependencyMetadata,
+    pub lock: serde_json::Value,
+}
+
 #[async_trait]
 pub trait Lockable {
     fn key(&self) -> String;
     fn matches(&self, pattern: &str) -> bool;
+    fn metadata(&self) -> DependencyMetadata;
     async fn lock(&self) -> Result<Box<dyn Serialize>, Error>;
+    async fn lock_with_metadata(&self) -> Result<LockEntry, Error> {
+        let lock_data = self.lock().await?;
+        let json_value = serde_json::to_value(&*lock_data)
+            .map_err(|e| Error::StringError(format!("Failed to serialize lock data: {}", e)))?;
+        Ok(LockEntry {
+            metadata: self.metadata(),
+            lock: json_value,
+        })
+    }
 }
 
 impl Dependency {
@@ -66,6 +91,22 @@ impl Dependency {
             Dependency::Docker(d) => d.matches(pattern),
             Dependency::GitHubBranch(d) => d.matches(pattern),
             Dependency::GitHubRelease(d) => d.matches(pattern),
+        }
+    }
+
+    pub fn metadata(&self) -> DependencyMetadata {
+        match self {
+            Dependency::Docker(d) => d.metadata(),
+            Dependency::GitHubBranch(d) => d.metadata(),
+            Dependency::GitHubRelease(d) => d.metadata(),
+        }
+    }
+
+    pub async fn lock_with_metadata(&self) -> Result<LockEntry, Error> {
+        match self {
+            Dependency::Docker(d) => d.lock_with_metadata().await,
+            Dependency::GitHubBranch(d) => d.lock_with_metadata().await,
+            Dependency::GitHubRelease(d) => d.lock_with_metadata().await,
         }
     }
 }

@@ -140,8 +140,8 @@ fn test_show_dependency_found() {
 
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Dependency: postgres:15"));
-    assert!(stdout.contains("Locked version:"));
+    assert!(stdout.contains("postgres:15"));
+    assert!(stdout.contains("Locked version (legacy format):")); // Old format shows legacy message
     assert!(stdout.contains("sha256:somehash"));
 }
 

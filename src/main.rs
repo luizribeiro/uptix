@@ -111,14 +111,14 @@ async fn update_command_in_dir(root_path: &str, dependency: Option<String>) -> R
     std::io::stdout().flush().into_diagnostic()?;
 
     for dependency in dependencies_to_update {
-        let lock = dependency.lock().await.into_diagnostic();
-        if lock.is_err() {
+        let lock_entry = dependency.lock_with_metadata().await.into_diagnostic();
+        if lock_entry.is_err() {
             println!("Error while updating dependency {}", dependency.key());
-            println!("{:?}", lock.err().unwrap());
+            println!("{:?}", lock_entry.err().unwrap());
             return Ok(());
         }
-        let lock_value = lock.unwrap();
-        let json_value = serde_json::to_value(lock_value).into_diagnostic()?;
+        let entry = lock_entry.unwrap();
+        let json_value = serde_json::to_value(entry).into_diagnostic()?;
         lock_file.insert(dependency.key().to_string(), json_value);
     }
     println!("Done.");
@@ -154,8 +154,32 @@ fn list_command_in_dir(root_path: &str) -> Result<()> {
     }
 
     println!("Dependencies in uptix.lock:");
-    for key in lock_json.keys() {
-        println!("  {}", key);
+    println!("{:<40} {:<20} {:<15}", "NAME", "VERSION", "TYPE");
+    println!("{}", "-".repeat(75));
+
+    for (key, value) in &lock_json {
+        // Try to parse as new format with metadata
+        if let Ok(metadata_obj) = value.get("metadata").ok_or("no metadata") {
+            if let Ok(name) = metadata_obj
+                .get("name")
+                .and_then(|v| v.as_str())
+                .ok_or("no name")
+            {
+                let version = metadata_obj
+                    .get("version")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("unknown");
+                let dep_type = metadata_obj
+                    .get("dep_type")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("unknown");
+                println!("{:<40} {:<20} {:<15}", name, version, dep_type);
+                continue;
+            }
+        }
+
+        // Fall back to old format - just show the key
+        println!("{:<40} {:<20} {:<15}", key, "legacy", "unknown");
     }
 
     Ok(())
@@ -180,12 +204,7 @@ fn show_command_in_dir(root_path: &str, dependency: &str) -> Result<()> {
     // Find the dependency in the lock file
     // Check for exact match first
     if let Some(locked_value) = lock_file.get(dependency) {
-        println!("Dependency: {}", dependency);
-        println!("\nLocked version:");
-        println!(
-            "{}",
-            serde_json::to_string_pretty(locked_value).into_diagnostic()?
-        );
+        display_dependency_details(dependency, locked_value)?;
         return Ok(());
     }
 
@@ -196,14 +215,48 @@ fn show_command_in_dir(root_path: &str, dependency: &str) -> Result<()> {
             || (dependency.contains("/") && key.contains(dependency))
             || (dependency.contains(":") && key.contains(&dependency.replace(":", ":")))
         {
-            println!("Dependency: {}", key);
-            println!("\nLocked version:");
-            println!("{}", serde_json::to_string_pretty(value).into_diagnostic()?);
+            display_dependency_details(key, value)?;
             return Ok(());
         }
     }
 
     eprintln!("Error: Dependency '{}' not found in uptix.lock", dependency);
+
+    Ok(())
+}
+
+fn display_dependency_details(key: &str, value: &Value) -> Result<()> {
+    // Try to parse as new format with metadata
+    if let Some(metadata_obj) = value.get("metadata") {
+        println!("Dependency Key: {}", key);
+        println!();
+
+        if let Some(name) = metadata_obj.get("name").and_then(|v| v.as_str()) {
+            println!("Name: {}", name);
+        }
+        if let Some(version) = metadata_obj.get("version").and_then(|v| v.as_str()) {
+            println!("Version: {}", version);
+        }
+        if let Some(dep_type) = metadata_obj.get("dep_type").and_then(|v| v.as_str()) {
+            println!("Type: {}", dep_type);
+        }
+        if let Some(description) = metadata_obj.get("description").and_then(|v| v.as_str()) {
+            println!("Description: {}", description);
+        }
+
+        println!("\nLock data:");
+        if let Some(lock_data) = value.get("lock") {
+            println!(
+                "{}",
+                serde_json::to_string_pretty(lock_data).into_diagnostic()?
+            );
+        }
+    } else {
+        // Fall back to old format
+        println!("Dependency: {}", key);
+        println!("\nLocked version (legacy format):");
+        println!("{}", serde_json::to_string_pretty(value).into_diagnostic()?);
+    }
 
     Ok(())
 }

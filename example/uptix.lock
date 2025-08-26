@@ -9,15 +9,31 @@
     "sha256": "0fqn3c0zpg5qnswxng18px3h5afhrh7jwr61vyzpgj3ap4knbb4v"
   },
   "$GITHUB_RELEASE$:luizribeiro/hello-world-rs$": {
-    "deepClone": false,
-    "fetchSubmodules": false,
-    "leaveDotGit": false,
-    "owner": "luizribeiro",
-    "repo": "hello-world-rs",
-    "rev": "v0.1.0",
-    "sha256": "0fqn3c0zpg5qnswxng18px3h5afhrh7jwr61vyzpgj3ap4knbb4v"
+    "lock": {
+      "deepClone": false,
+      "fetchSubmodules": false,
+      "leaveDotGit": false,
+      "owner": "luizribeiro",
+      "repo": "hello-world-rs",
+      "rev": "v0.1.0",
+      "sha256": "0fqn3c0zpg5qnswxng18px3h5afhrh7jwr61vyzpgj3ap4knbb4v"
+    },
+    "metadata": {
+      "dep_type": "github-release",
+      "description": "GitHub release from luizribeiro/hello-world-rs",
+      "name": "luizribeiro/hello-world-rs",
+      "version": "latest release"
+    }
   },
   "homeassistant/home-assistant:stable": "sha256:2eb83307a08de3287822b648fce4cbf1364423b55f2af623c149c6b21c2cef00",
   "koenkk/zigbee2mqtt:latest": "sha256:472f4f5ed5d4258056093ea5745bc0ada37628b667d7db4fb12c2ffea74b2703",
-  "postgres:15": "sha256:bc51cf4f1fe02cce7ed2370b20128a9b00b4eb804573a77d2a0d877aaa9c82b1"
+  "postgres:15": {
+    "lock": "sha256:bc51cf4f1fe02cce7ed2370b20128a9b00b4eb804573a77d2a0d877aaa9c82b1",
+    "metadata": {
+      "dep_type": "docker",
+      "description": "Docker image postgres:15 from registry-1.docker.io",
+      "name": "postgres",
+      "version": "15"
+    }
+  }
 }

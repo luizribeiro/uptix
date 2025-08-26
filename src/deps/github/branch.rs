@@ -1,6 +1,6 @@
 use crate::deps::assert_kind;
 use crate::deps::github;
-use crate::deps::Lockable;
+use crate::deps::{DependencyMetadata, Lockable};
 use crate::error::Error;
 use crate::util;
 use crate::util::ParsingContext;
@@ -109,6 +109,18 @@ impl Lockable for GitHubBranch {
         }
 
         false
+    }
+
+    fn metadata(&self) -> DependencyMetadata {
+        DependencyMetadata {
+            name: format!("{}/{}", self.owner, self.repo),
+            version: format!("branch:{}", self.branch),
+            dep_type: "github-branch".to_string(),
+            description: format!(
+                "GitHub branch {} from {}/{}",
+                self.branch, self.owner, self.repo
+            ),
+        }
     }
 
     async fn lock(&self) -> Result<Box<dyn erased_serde::Serialize>, Error> {

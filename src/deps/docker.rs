@@ -1,4 +1,4 @@
-use crate::deps::{assert_kind, Lockable};
+use crate::deps::{assert_kind, DependencyMetadata, Lockable};
 use crate::error::Error;
 use crate::util::ParsingContext;
 use async_trait::async_trait;
@@ -167,6 +167,18 @@ impl Lockable for Docker {
         self.name == pattern ||
         // Also match without tag if pattern doesn't include one and it's a Docker Hub image
         (self.registry == DEFAULT_REGISTRY && self.image == pattern && !pattern.contains(':'))
+    }
+
+    fn metadata(&self) -> DependencyMetadata {
+        DependencyMetadata {
+            name: self.image.clone(),
+            version: self.tag.clone(),
+            dep_type: "docker".to_string(),
+            description: format!(
+                "Docker image {}:{} from {}",
+                self.image, self.tag, self.registry
+            ),
+        }
     }
 
     async fn lock(&self) -> Result<Box<dyn Serialize>, Error> {
