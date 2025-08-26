@@ -162,6 +162,13 @@ impl Lockable for Docker {
         return self.name.to_string();
     }
 
+    fn matches(&self, pattern: &str) -> bool {
+        // Match against the full name (e.g., "postgres:15")
+        self.name == pattern || 
+        // Also match without tag if pattern doesn't include one and it's a Docker Hub image
+        (self.registry == DEFAULT_REGISTRY && self.image == pattern && !pattern.contains(':'))
+    }
+
     async fn lock(&self) -> Result<Box<dyn Serialize>, Error> {
         return match self.latest_digest().await? {
             Some(digest) => Ok(Box::new(digest)),
@@ -175,9 +182,48 @@ impl Lockable for Docker {
 
 #[cfg(test)]
 mod tests {
-    use super::{Docker, DEFAULT_REGISTRY};
+    use super::*;
     use crate::deps::test_util;
     use crate::deps::Lockable;
+
+    #[test]
+    fn test_docker_matches() {
+        let docker = Docker {
+            registry: DEFAULT_REGISTRY.to_string(),
+            image: "postgres".to_string(),
+            tag: "15".to_string(),
+            name: "postgres:15".to_string(),
+            use_https: true,
+        };
+        
+        // Should match full name with tag
+        assert!(docker.matches("postgres:15"));
+        
+        // Should match just the image name without tag
+        assert!(docker.matches("postgres"));
+        
+        // Should not match different image
+        assert!(!docker.matches("mysql:8"));
+        assert!(!docker.matches("mysql"));
+        
+        // Should not match partial names
+        assert!(!docker.matches("post"));
+    }
+    
+    #[test] 
+    fn test_docker_with_registry_matches() {
+        let docker = Docker {
+            registry: "gcr.io".to_string(),
+            image: "my-project/my-image".to_string(),
+            tag: "latest".to_string(),
+            name: "gcr.io/my-project/my-image:latest".to_string(),
+            use_https: true,
+        };
+        
+        assert!(docker.matches("gcr.io/my-project/my-image:latest"));
+        assert!(!docker.matches("my-project/my-image:latest"));
+        assert!(!docker.matches("my-project/my-image"));
+    }
 
     #[test]
     fn it_parses() {

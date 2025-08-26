@@ -23,6 +23,7 @@ pub enum Dependency {
 #[async_trait]
 pub trait Lockable {
     fn key(&self) -> String;
+    fn matches(&self, pattern: &str) -> bool;
     async fn lock(&self) -> Result<Box<dyn Serialize>, Error>;
 }
 
@@ -57,6 +58,14 @@ impl Dependency {
             Dependency::Docker(d) => d.lock().await,
             Dependency::GitHubBranch(d) => d.lock().await,
             Dependency::GitHubRelease(d) => d.lock().await,
+        }
+    }
+
+    pub fn matches(&self, pattern: &str) -> bool {
+        match self {
+            Dependency::Docker(d) => d.matches(pattern),
+            Dependency::GitHubBranch(d) => d.matches(pattern),
+            Dependency::GitHubRelease(d) => d.matches(pattern),
         }
     }
 }

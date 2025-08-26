@@ -8,6 +8,28 @@ uptix is a Rust tool for pinning and updating external dependencies in NixOS con
 
 ## Key Commands
 
+### Usage
+```bash
+# Update all dependencies
+uptix
+
+# Update a single dependency - Docker images
+uptix --dependency "postgres:15"
+uptix --dependency "homeassistant/home-assistant:stable"
+
+# Update a single dependency - GitHub releases (matches uptix.githubRelease)
+uptix --dependency "owner/repo"
+uptix --dependency "luizribeiro/hello-world-rs"
+
+# Update a single dependency - GitHub branches (matches uptix.githubBranch)
+uptix --dependency "owner/repo:branch"
+uptix --dependency "luizribeiro/hello-world-rs:main"
+
+# You can also use the internal key format if needed
+uptix --dependency '$GITHUB_RELEASE$:owner/repo$'
+uptix --dependency '$GITHUB_BRANCH$:owner/repo:branch$'
+```
+
 ### Development
 ```bash
 # Build the project

@@ -30,18 +30,14 @@
         "utils": "utils"
       },
       "locked": {
-        "lastModified": 1651890727,
-        "narHash": "sha256-IvNo4gvecuf+SnJaiX0t72TrExmOJBQp7phAoHesROc=",
-        "owner": "luizribeiro",
-        "repo": "uptix",
-        "rev": "cc5115d7bb905d5dcf50b7a3c7f9b85e87dac0ed",
-        "type": "github"
+        "path": "..",
+        "type": "path"
       },
       "original": {
-        "owner": "luizribeiro",
-        "repo": "uptix",
-        "type": "github"
-      }
+        "path": "..",
+        "type": "path"
+      },
+      "parent": []
     },
     "utils": {
       "locked": {

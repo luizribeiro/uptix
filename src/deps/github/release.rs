@@ -82,6 +82,23 @@ impl Lockable for GitHubRelease {
         );
     }
 
+    fn matches(&self, pattern: &str) -> bool {
+        // Match the internal format
+        if pattern == self.key() {
+            return true;
+        }
+        
+        // Match owner/repo format (without branch, so it's a release)
+        if !pattern.contains(':') && pattern.contains('/') {
+            let pattern_parts: Vec<&str> = pattern.split('/').collect();
+            if pattern_parts.len() == 2 {
+                return pattern_parts[0] == self.owner && pattern_parts[1] == self.repo;
+            }
+        }
+        
+        false
+    }
+
     async fn lock(&self) -> Result<Box<dyn erased_serde::Serialize>, Error> {
         let rev = fetch_github_latest_release(self).await?.tag_name;
         let sha256 = match &self.override_nix_sha256 {
@@ -189,6 +206,48 @@ mod tests {
         );
 
         mockito::reset();
+    }
+
+    #[test]
+    fn test_github_release_matches() {
+        let release = GitHubRelease {
+            owner: "luizribeiro".to_string(),
+            repo: "uptix".to_string(),
+            ..Default::default()
+        };
+        
+        // Should match the internal key format
+        assert!(release.matches("$GITHUB_RELEASE$:luizribeiro/uptix$"));
+        
+        // Should match owner/repo format (for releases)
+        assert!(release.matches("luizribeiro/uptix"));
+        
+        // Should not match with branch format
+        assert!(!release.matches("luizribeiro/uptix:main"));
+        
+        // Should not match different repos
+        assert!(!release.matches("other/repo"));
+        assert!(!release.matches("luizribeiro/other"));
+        
+        // Should not match partial names
+        assert!(!release.matches("luizribeiro"));
+        assert!(!release.matches("uptix"));
+    }
+    
+    #[test]
+    fn test_github_release_with_flags_matches() {
+        let release = GitHubRelease {
+            owner: "luizribeiro".to_string(),
+            repo: "uptix".to_string(),
+            fetchSubmodules: Some(true),
+            ..Default::default()
+        };
+        
+        // Should match the internal key format with flags
+        assert!(release.matches("$GITHUB_RELEASE$:luizribeiro/uptix$f"));
+        
+        // Should still match the simple format
+        assert!(release.matches("luizribeiro/uptix"));
     }
 
     #[test]

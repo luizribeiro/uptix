@@ -45,6 +45,8 @@ jobs:
         working-directory: ./example/
       - run: nix develop -c uptix
         working-directory: ./example/
+      - run: ./test-single-dep.sh
+        name: Test single dependency update
       - run: |
           nix build .\#nixosConfigurations.somehost.config.system.build.toplevel
         working-directory: ./example/
