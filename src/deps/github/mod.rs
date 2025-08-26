@@ -91,7 +91,7 @@ pub async fn github_api_request(url: reqwest::Url) -> Result<String, Error> {
     }
 
     let response = request.send().await?;
-    
+
     // Check status before reading body
     if !response.status().is_success() {
         let status = response.status();
@@ -101,6 +101,6 @@ pub async fn github_api_request(url: reqwest::Url) -> Result<String, Error> {
             status, body
         )));
     }
-    
+
     Ok(response.text().await?)
 }

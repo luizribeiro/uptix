@@ -172,10 +172,12 @@ impl Lockable for Docker {
         // Fetch the digest
         let digest = match self.latest_digest().await? {
             Some(d) => d,
-            None => return Err(Error::StringError(format!(
-                "Could not find digest for image {} on registry",
-                self.name,
-            ))),
+            None => {
+                return Err(Error::StringError(format!(
+                    "Could not find digest for image {} on registry",
+                    self.name,
+                )))
+            }
         };
 
         // Create metadata with all fields populated
@@ -333,7 +335,10 @@ mod tests {
         };
         let lock_entry = dependency.lock_with_metadata().await.unwrap();
         assert_eq!(lock_entry.metadata.name, "homeassistant/home-assistant");
-        assert_eq!(lock_entry.metadata.selected_version, Some("stable".to_string()));
+        assert_eq!(
+            lock_entry.metadata.selected_version,
+            Some("stable".to_string())
+        );
         assert_eq!(lock_entry.lock.as_str().unwrap(), "sha256:foobar");
         mockito::reset();
     }

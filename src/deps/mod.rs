@@ -76,7 +76,6 @@ impl Dependency {
         }
     }
 
-
     pub fn matches(&self, pattern: &str) -> bool {
         match self {
             Dependency::Docker(d) => d.matches(pattern),
@@ -84,7 +83,6 @@ impl Dependency {
             Dependency::GitHubRelease(d) => d.matches(pattern),
         }
     }
-
 
     pub async fn lock_with_metadata(&self) -> Result<LockEntry, Error> {
         match self {

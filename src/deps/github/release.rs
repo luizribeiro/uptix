@@ -219,10 +219,10 @@ mod tests {
     #[serial_test::serial]
     async fn it_uses_github_token_when_set() {
         use std::env;
-        
+
         // Set GITHUB_TOKEN for this test
         env::set_var("GITHUB_TOKEN", "test-token-release");
-        
+
         let address = mockito::server_address().to_string();
         let _latest_release_mock = mockito::mock("GET", "/repos/luizribeiro/uptix/releases/latest")
             .match_header(
@@ -251,13 +251,13 @@ mod tests {
             ),
             ..Default::default()
         };
-        
+
         let result = dependency.lock_with_metadata().await;
-        
+
         // Clean up first to ensure it happens even on panic
         env::remove_var("GITHUB_TOKEN");
         mockito::reset();
-        
+
         // Now check the result
         let lock_entry = result.unwrap();
         let lock_value = lock_entry.lock;
