@@ -70,7 +70,7 @@ fn test_github_release_pattern_update() {
 #[test]
 fn test_github_branch_pattern_update() {
     use std::env;
-    
+
     let temp_dir = TempDir::new().unwrap();
 
     // Create nix file with GitHub branch dependencies
