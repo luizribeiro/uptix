@@ -28,8 +28,8 @@
           openssl
           makeWrapper
         ] ++ lib.optionals stdenv.isDarwin [
-          darwin.apple_sdk.frameworks.Security
-          darwin.apple_sdk.frameworks.CoreFoundation
+          darwin.apple-sdk.frameworks.Security
+          darwin.apple-sdk.frameworks.CoreFoundation
           libiconv
         ];
         preBuild = ''
@@ -50,8 +50,8 @@
         buildInputs = [
           openssl
         ] ++ lib.optionals stdenv.isDarwin [
-          darwin.apple_sdk.frameworks.Security
-          darwin.apple_sdk.frameworks.CoreFoundation
+          darwin.apple-sdk.frameworks.Security
+          darwin.apple-sdk.frameworks.CoreFoundation
           libiconv
         ];
         nativeBuildInputs = [
