@@ -2,11 +2,8 @@ use uptix::deps;
 use uptix::util;
 
 use clap::{Parser, Subcommand};
-use deps::collect_file_dependencies;
-use deps::Dependency;
+use deps::{collect_file_dependencies, Dependency, LockEntry, LockFile};
 use miette::{IntoDiagnostic, Result};
-use serde_json::Value;
-use std::collections::BTreeMap;
 use std::fs;
 use std::io::Write;
 use std::path::Path;
@@ -100,11 +97,11 @@ async fn update_command_in_dir(root_path: &str, dependency: Option<String>) -> R
     let lock_path = Path::new(root_path).join("uptix.lock");
 
     // Load existing lock file if it exists
-    let mut lock_file: BTreeMap<String, Value> = if lock_path.exists() && dependency.is_some() {
+    let mut lock_file: LockFile = if lock_path.exists() && dependency.is_some() {
         let existing_content = fs::read_to_string(&lock_path).into_diagnostic()?;
-        serde_json::from_str(&existing_content).unwrap_or_else(|_| BTreeMap::new())
+        serde_json::from_str(&existing_content).unwrap_or_else(|_| LockFile::new())
     } else {
-        BTreeMap::new()
+        LockFile::new()
     };
 
     print!("Looking for updates... ");
@@ -118,8 +115,7 @@ async fn update_command_in_dir(root_path: &str, dependency: Option<String>) -> R
             return Ok(());
         }
         let entry = lock_entry.unwrap();
-        let json_value = serde_json::to_value(entry).into_diagnostic()?;
-        lock_file.insert(dependency.key().to_string(), json_value);
+        lock_file.insert(dependency.key().to_string(), entry);
     }
     println!("Done.");
 
@@ -145,10 +141,9 @@ fn list_command_in_dir(root_path: &str) -> Result<()> {
     }
 
     let lock_content = fs::read_to_string(&lock_path).into_diagnostic()?;
-    let lock_json: BTreeMap<String, Value> =
-        serde_json::from_str(&lock_content).into_diagnostic()?;
+    let lock_file: LockFile = serde_json::from_str(&lock_content).into_diagnostic()?;
 
-    if lock_json.is_empty() {
+    if lock_file.is_empty() {
         println!("No dependencies in uptix.lock");
         return Ok(());
     }
@@ -160,35 +155,15 @@ fn list_command_in_dir(root_path: &str) -> Result<()> {
     );
     println!("{}", "-".repeat(90));
 
-    for (key, value) in &lock_json {
-        let Some(metadata_obj) = value.get("metadata") else {
-            eprintln!("Error: Missing metadata for dependency {}", key);
-            continue;
-        };
+    for (_key, entry) in &lock_file {
+        let metadata = &entry.metadata;
 
-        let Some(name) = metadata_obj.get("name").and_then(|v| v.as_str()) else {
-            eprintln!("Error: Missing name in metadata for {}", key);
-            continue;
-        };
-
-        let selector = metadata_obj
-            .get("version_selector")
-            .and_then(|v| v.as_str())
-            .unwrap_or("unknown");
-
-        let resolved = metadata_obj
-            .get("resolved_version")
-            .and_then(|v| v.as_str())
-            .unwrap_or("pending");
-
-        let dep_type = metadata_obj
-            .get("dep_type")
-            .and_then(|v| v.as_str())
-            .unwrap_or("unknown");
+        let selector = metadata.version_selector.as_deref().unwrap_or("unknown");
+        let resolved = metadata.resolved_version.as_deref().unwrap_or("pending");
 
         println!(
             "{:<35} {:<20} {:<20} {:<15}",
-            name, selector, resolved, dep_type
+            metadata.name, selector, resolved, metadata.dep_type
         );
     }
 
@@ -208,24 +183,23 @@ fn show_command_in_dir(root_path: &str, dependency: &str) -> Result<()> {
     }
 
     let lock_content = fs::read_to_string(&lock_path).into_diagnostic()?;
-    let lock_file: BTreeMap<String, Value> =
-        serde_json::from_str(&lock_content).into_diagnostic()?;
+    let lock_file: LockFile = serde_json::from_str(&lock_content).into_diagnostic()?;
 
     // Find the dependency in the lock file
     // Check for exact match first
-    if let Some(locked_value) = lock_file.get(dependency) {
-        display_dependency_details(dependency, locked_value)?;
+    if let Some(entry) = lock_file.get(dependency) {
+        display_dependency_details(dependency, entry)?;
         return Ok(());
     }
 
     // Try to find by partial match (for ergonomic patterns)
-    for (key, value) in &lock_file {
+    for (key, entry) in &lock_file {
         // Check if the key matches the ergonomic patterns
         if key.contains(dependency)
             || (dependency.contains("/") && key.contains(dependency))
             || (dependency.contains(":") && key.contains(&dependency.replace(":", ":")))
         {
-            display_dependency_details(key, value)?;
+            display_dependency_details(key, entry)?;
             return Ok(());
         }
     }
@@ -235,52 +209,30 @@ fn show_command_in_dir(root_path: &str, dependency: &str) -> Result<()> {
     Ok(())
 }
 
-fn display_dependency_details(key: &str, value: &Value) -> Result<()> {
-    let Some(metadata_obj) = value.get("metadata") else {
-        eprintln!("Error: Missing metadata for dependency {}", key);
-        return Ok(());
-    };
+fn display_dependency_details(key: &str, entry: &LockEntry) -> Result<()> {
+    let metadata = &entry.metadata;
 
     println!("Dependency Key: {}", key);
     println!();
+    println!("Name: {}", metadata.name);
 
-    if let Some(name) = metadata_obj.get("name").and_then(|v| v.as_str()) {
-        println!("Name: {}", name);
-    }
-
-    if let Some(selector) = metadata_obj
-        .get("version_selector")
-        .and_then(|v| v.as_str())
-    {
+    if let Some(selector) = &metadata.version_selector {
         println!("Version Selector: {}", selector);
     }
 
-    if let Some(resolved) = metadata_obj
-        .get("resolved_version")
-        .and_then(|v| v.as_str())
-    {
+    if let Some(resolved) = &metadata.resolved_version {
         println!("Resolved Version: {}", resolved);
     } else {
         println!("Resolved Version: pending");
     }
 
-    if let Some(dep_type) = metadata_obj.get("dep_type").and_then(|v| v.as_str()) {
-        println!("Type: {}", dep_type);
-    }
-
-    if let Some(description) = metadata_obj.get("description").and_then(|v| v.as_str()) {
-        println!("Description: {}", description);
-    }
+    println!("Type: {}", metadata.dep_type);
+    println!("Description: {}", metadata.description);
 
     println!("\nLock data:");
-    let Some(lock_data) = value.get("lock") else {
-        eprintln!("Error: Missing lock data for dependency {}", key);
-        return Ok(());
-    };
-
     println!(
         "{}",
-        serde_json::to_string_pretty(lock_data).into_diagnostic()?
+        serde_json::to_string_pretty(&entry.lock).into_diagnostic()?
     );
 
     Ok(())
@@ -297,7 +249,7 @@ fn init_command_in_dir(root_path: &str) -> Result<()> {
         return Ok(());
     }
 
-    let empty_lock: BTreeMap<String, Value> = BTreeMap::new();
+    let empty_lock: LockFile = LockFile::new();
     let json = serde_json::to_string_pretty(&empty_lock).into_diagnostic()?;
     fs::write(&lock_path, json).into_diagnostic()?;
     println!("Created empty uptix.lock file.");
@@ -449,7 +401,16 @@ mod tests {
 
         // Create a lock file with a postgres dependency
         let lock_content = r#"{
-            "postgres:15": "sha256:bc51cf4f1fe02cce7ed2370b20128a9b00b4eb804573a77d2a0d877aaa9c82b1"
+            "postgres:15": {
+                "metadata": {
+                    "name": "postgres",
+                    "version_selector": "15",
+                    "resolved_version": "sha256:bc51cf4f1fe0",
+                    "dep_type": "docker",
+                    "description": "Docker image postgres:15"
+                },
+                "lock": "sha256:bc51cf4f1fe02cce7ed2370b20128a9b00b4eb804573a77d2a0d877aaa9c82b1"
+            }
         }"#;
         fs::write(temp_path.join("uptix.lock"), lock_content).unwrap();
 
@@ -465,8 +426,26 @@ mod tests {
 
         // Create a lock file with multiple dependencies
         let lock_content = r#"{
-            "postgres:15": "sha256:bc51cf4f1fe02cce7ed2370b20128a9b00b4eb804573a77d2a0d877aaa9c82b1",
-            "redis:latest": "sha256:472f4f5ed5d4258056093ea5745bc0ada37628b667d7db4fb12c2ffea74b2703"
+            "postgres:15": {
+                "metadata": {
+                    "name": "postgres",
+                    "version_selector": "15",
+                    "resolved_version": "sha256:bc51cf4f1fe0",
+                    "dep_type": "docker",
+                    "description": "Docker image postgres:15"
+                },
+                "lock": "sha256:bc51cf4f1fe02cce7ed2370b20128a9b00b4eb804573a77d2a0d877aaa9c82b1"
+            },
+            "redis:latest": {
+                "metadata": {
+                    "name": "redis",
+                    "version_selector": "latest",
+                    "resolved_version": "sha256:472f4f5ed5d4",
+                    "dep_type": "docker",
+                    "description": "Docker image redis:latest"
+                },
+                "lock": "sha256:472f4f5ed5d4258056093ea5745bc0ada37628b667d7db4fb12c2ffea74b2703"
+            }
         }"#;
         fs::write(temp_path.join("uptix.lock"), lock_content).unwrap();
 

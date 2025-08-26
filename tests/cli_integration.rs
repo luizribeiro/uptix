@@ -87,10 +87,28 @@ fn test_list_no_dependencies() {
 fn test_list_with_dependencies() {
     let temp_dir = TempDir::new().unwrap();
 
-    // Create a lock file with dependencies
+    // Create a lock file with dependencies in new format
     let lock_content = r#"{
-        "postgres:15": "sha256:bc51cf4f1fe02cce7ed2370b20128a9b00b4eb804573a77d2a0d877aaa9c82b1",
-        "redis:latest": "sha256:472f4f5ed5d4258056093ea5745bc0ada37628b667d7db4fb12c2ffea74b2703"
+        "postgres:15": {
+            "metadata": {
+                "name": "postgres",
+                "version_selector": "15",
+                "resolved_version": "sha256:bc51cf4f1fe0",
+                "dep_type": "docker",
+                "description": "Docker image postgres:15"
+            },
+            "lock": "sha256:bc51cf4f1fe02cce7ed2370b20128a9b00b4eb804573a77d2a0d877aaa9c82b1"
+        },
+        "redis:latest": {
+            "metadata": {
+                "name": "redis",
+                "version_selector": "latest",
+                "resolved_version": "sha256:472f4f5ed5d4",
+                "dep_type": "docker",
+                "description": "Docker image redis:latest"
+            },
+            "lock": "sha256:472f4f5ed5d4258056093ea5745bc0ada37628b667d7db4fb12c2ffea74b2703"
+        }
     }"#;
     fs::write(temp_dir.path().join("uptix.lock"), lock_content).unwrap();
 
@@ -102,11 +120,13 @@ fn test_list_with_dependencies() {
 
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stdout.contains("Dependencies in uptix.lock:"));
-    // With backward compatibility removed, old format shows errors
-    assert!(stderr.contains("Error: Missing metadata for dependency postgres:15"));
-    assert!(stderr.contains("Error: Missing metadata for dependency redis:latest"));
+    assert!(stdout.contains("postgres"));
+    assert!(stdout.contains("15"));
+    assert!(stdout.contains("sha256:bc51cf4f1fe0"));
+    assert!(stdout.contains("redis"));
+    assert!(stdout.contains("latest"));
+    assert!(stdout.contains("sha256:472f4f5ed5d4"));
 }
 
 #[test]
@@ -128,9 +148,18 @@ fn test_show_dependency_not_found() {
 fn test_show_dependency_found() {
     let temp_dir = TempDir::new().unwrap();
 
-    // Create a lock file with a dependency
+    // Create a lock file with a dependency in new format
     let lock_content = r#"{
-        "postgres:15": "sha256:somehash"
+        "postgres:15": {
+            "metadata": {
+                "name": "postgres",
+                "version_selector": "15",
+                "resolved_version": "sha256:somehash",
+                "dep_type": "docker",
+                "description": "Docker image postgres:15"
+            },
+            "lock": "sha256:somehash"
+        }
     }"#;
     fs::write(temp_dir.path().join("uptix.lock"), lock_content).unwrap();
 
@@ -141,9 +170,12 @@ fn test_show_dependency_found() {
         .expect("Failed to execute uptix show");
 
     assert!(output.status.success());
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    // With backward compatibility removed, old format shows error
-    assert!(stderr.contains("Error: Missing metadata for dependency postgres:15"));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Dependency Key: postgres:15"));
+    assert!(stdout.contains("Name: postgres"));
+    assert!(stdout.contains("Version Selector: 15"));
+    assert!(stdout.contains("Resolved Version: sha256:somehash"));
+    assert!(stdout.contains("Type: docker"));
 }
 
 #[test]

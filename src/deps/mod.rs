@@ -12,6 +12,7 @@ use enum_as_inner::EnumAsInner;
 use erased_serde::Serialize;
 use rnix::{SyntaxKind, SyntaxNode};
 use serde::{Deserialize, Serialize as SerdeSerialize};
+use std::collections::BTreeMap;
 use std::fs;
 
 #[derive(EnumAsInner, Clone, Debug)]
@@ -37,6 +38,9 @@ pub struct LockEntry {
     pub metadata: DependencyMetadata,
     pub lock: serde_json::Value,
 }
+
+// Type alias for the entire lock file
+pub type LockFile = BTreeMap<String, LockEntry>;
 
 #[async_trait]
 pub trait Lockable {
