@@ -124,3 +124,7 @@ configurations:
   };
 }
 ```
+
+## TODO
+
+- Add tests for the Nix module (`modules/default.nix`) to ensure the lock file parsing and uptix functions work correctly

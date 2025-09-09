@@ -4,6 +4,9 @@ with builtins;
 
 let
   lockFor = key: (importJSON lockFile).${key};
+  lockDataFor = key: 
+    let entry = lockFor key;
+    in if entry ? lock then entry.lock else entry;
   gitFlag = s: v: if v then s else "";
   gitFlags = { fetchSubmodules ? false, deepClone ? false, leaveDotGit ? false, ... }:
     concatStringsSep "" [
@@ -25,12 +28,12 @@ let
   hasPrefix = pref: str: substring 0 (stringLength pref) str == pref;
 in
 {
-  dockerImage = name: "${name}@${lockFor name}";
+  dockerImage = name: "${name}@${lockDataFor name}";
   githubBranch = { owner, repo, branch, ... } @ args:
-    (filterFalse (lockFor "$GITHUB_BRANCH$:${owner}/${repo}:${branch}\$${gitFlags args}"))
+    (filterFalse (lockDataFor "$GITHUB_BRANCH$:${owner}/${repo}:${branch}\$${gitFlags args}"))
     // (removeAttrs args [ "branch" ]);
   githubRelease = { owner, repo, ... } @ args:
-    (filterFalse (lockFor "$GITHUB_RELEASE$:${owner}/${repo}\$${gitFlags args}"))
+    (filterFalse (lockDataFor "$GITHUB_RELEASE$:${owner}/${repo}\$${gitFlags args}"))
     // args;
   version = githubRelease:
     let rev = githubRelease.rev; in
