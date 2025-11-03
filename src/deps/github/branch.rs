@@ -101,6 +101,15 @@ impl Lockable for GitHubBranch {
             }
         }
 
+        // Match owner/repo format (without branch specifier)
+        // This allows users to update using the name shown in `uptix list`
+        if !pattern.contains(':') && pattern.contains('/') {
+            let pattern_parts: Vec<&str> = pattern.split('/').collect();
+            if pattern_parts.len() == 2 {
+                return pattern_parts[0] == self.owner && pattern_parts[1] == self.repo;
+            }
+        }
+
         false
     }
 
@@ -329,15 +338,18 @@ mod tests {
         // Should match owner/repo:branch format
         assert!(branch.matches("luizribeiro/uptix:main"));
 
-        // Should not match without branch
-        assert!(!branch.matches("luizribeiro/uptix"));
+        // Should match owner/repo format without branch (fixes bug)
+        // This is the format displayed in `uptix list`
+        assert!(branch.matches("luizribeiro/uptix"));
 
-        // Should not match different branch
+        // Should not match different branch when branch is specified
         assert!(!branch.matches("luizribeiro/uptix:develop"));
 
         // Should not match different repos
         assert!(!branch.matches("other/repo:main"));
         assert!(!branch.matches("luizribeiro/other:main"));
+        assert!(!branch.matches("other/repo"));
+        assert!(!branch.matches("luizribeiro/other"));
 
         // Should not match partial names
         assert!(!branch.matches("luizribeiro"));
