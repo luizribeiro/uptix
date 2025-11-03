@@ -155,6 +155,70 @@ fn test_github_branch_pattern_update() {
 }
 
 #[test]
+fn test_github_branch_without_branch_specifier() {
+    use std::env;
+
+    let temp_dir = TempDir::new().unwrap();
+
+    // Create nix file with GitHub branch dependency
+    let nix_content = r#"{
+        soakd = uptix.githubBranch {
+            owner = "luizribeiro";
+            repo = "soakd";
+            branch = "main";
+        };
+    }"#;
+    fs::write(temp_dir.path().join("test.nix"), nix_content).unwrap();
+
+    // Create a mock lock file with existing entry to prevent actual API calls
+    let lock_content = r#"{
+        "$GITHUB_BRANCH$:luizribeiro/soakd:main$": {
+            "metadata": {
+                "name": "luizribeiro/soakd",
+                "selected_version": "main",
+                "resolved_version": "879e779c38031af31927df2517b1633f3d73c4c7",
+                "friendly_version": "879e779",
+                "dep_type": "github-branch",
+                "description": "GitHub branch main from luizribeiro/soakd"
+            },
+            "lock": {
+                "owner": "luizribeiro",
+                "repo": "soakd",
+                "rev": "879e779c38031af31927df2517b1633f3d73c4c7",
+                "sha256": "0000000000000000000000000000000000000000000000000000",
+                "fetchSubmodules": false,
+                "deepClone": false,
+                "leaveDotGit": false
+            }
+        }
+    }"#;
+    fs::write(temp_dir.path().join("uptix.lock"), lock_content).unwrap();
+
+    // Set a fake GitHub token to avoid rate limiting issues in CI
+    env::set_var("GITHUB_TOKEN", "test-token");
+
+    // Test updating using owner/repo pattern WITHOUT branch specifier
+    // This is the pattern shown in `uptix list` output
+    let output = Command::new(uptix_binary())
+        .current_dir(temp_dir.path())
+        .args(&["update", "--dependency", "luizribeiro/soakd"])
+        .output()
+        .expect("Failed to execute uptix");
+
+    // Clean up
+    env::remove_var("GITHUB_TOKEN");
+
+    if !output.status.success() {
+        eprintln!("Command failed with status: {}", output.status);
+        eprintln!("STDOUT: {}", String::from_utf8_lossy(&output.stdout));
+        eprintln!("STDERR: {}", String::from_utf8_lossy(&output.stderr));
+    }
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Found 1 dependencies matching 'luizribeiro/soakd'"));
+}
+
+#[test]
 fn test_ambiguous_pattern_handling() {
     let temp_dir = TempDir::new().unwrap();
 
@@ -172,7 +236,7 @@ fn test_ambiguous_pattern_handling() {
     }"#;
     fs::write(temp_dir.path().join("test.nix"), nix_content).unwrap();
 
-    // Test that owner/repo pattern only matches release
+    // Test that owner/repo pattern matches BOTH release and branch (since both match the pattern)
     let output = Command::new(uptix_binary())
         .current_dir(temp_dir.path())
         .args(&["update", "--dependency", "luizribeiro/uptix"])
@@ -181,7 +245,8 @@ fn test_ambiguous_pattern_handling() {
 
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Found 1 dependencies matching 'luizribeiro/uptix'"));
+    // After the fix, this should match both dependencies
+    assert!(stdout.contains("Found 2 dependencies matching 'luizribeiro/uptix'"));
 }
 
 #[test]
