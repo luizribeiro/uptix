@@ -158,21 +158,14 @@ fn list_command_in_dir(root_path: &str) -> Result<()> {
     for (_key, entry) in &lock_file {
         let metadata = &entry.metadata;
 
-        let selector = metadata.selected_version.as_deref().unwrap_or("unknown");
         let resolved = metadata.resolved_version.as_deref().unwrap_or("pending");
         let friendly = metadata.friendly_version.as_deref().unwrap_or(resolved);
 
-        // Combine type and selector for more compact output
-        let type_info = match metadata.dep_type.as_str() {
-            "docker" => format!("docker-image ({})", selector),
-            "github-release" => format!("github-release"),
-            "github-branch" => format!("github-branch ({})", selector),
-            _ => format!("{}", metadata.dep_type),
-        };
-
         println!(
             "{:<35} {:<30} {:<20}",
-            metadata.name, type_info, friendly
+            metadata.name,
+            metadata.type_display(),
+            friendly
         );
     }
 

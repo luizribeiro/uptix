@@ -34,6 +34,29 @@ pub struct DependencyMetadata {
     pub description: String,
 }
 
+impl DependencyMetadata {
+    /// Returns a friendly display string for the dependency type,
+    /// including relevant selector information where appropriate.
+    /// This is computed on-demand and not stored in the lock file.
+    pub fn type_display(&self) -> String {
+        let selector = self.selected_version.as_deref().unwrap_or("unknown");
+
+        match self.dep_type.as_str() {
+            "docker" => format!("docker-image ({})", selector),
+            "github-branch" => format!("github-branch ({})", selector),
+            "github-release" => {
+                // For releases, "latest" is implied and doesn't add information
+                if selector == "latest" {
+                    "github-release".to_string()
+                } else {
+                    format!("github-release ({})", selector)
+                }
+            }
+            _ => self.dep_type.clone(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, SerdeSerialize, Deserialize)]
 pub struct LockEntry {
     pub metadata: DependencyMetadata,
