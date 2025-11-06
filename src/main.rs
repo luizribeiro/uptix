@@ -150,10 +150,10 @@ fn list_command_in_dir(root_path: &str) -> Result<()> {
 
     println!("Dependencies in uptix.lock:");
     println!(
-        "{:<35} {:<20} {:<20} {:<15}",
-        "NAME", "SELECTOR", "RESOLVED", "TYPE"
+        "{:<35} {:<30} {:<20}",
+        "DEPENDENCY", "TYPE", "LOCKED VERSION"
     );
-    println!("{}", "-".repeat(90));
+    println!("{}", "-".repeat(85));
 
     for (_key, entry) in &lock_file {
         let metadata = &entry.metadata;
@@ -162,9 +162,17 @@ fn list_command_in_dir(root_path: &str) -> Result<()> {
         let resolved = metadata.resolved_version.as_deref().unwrap_or("pending");
         let friendly = metadata.friendly_version.as_deref().unwrap_or(resolved);
 
+        // Combine type and selector for more compact output
+        let type_info = match metadata.dep_type.as_str() {
+            "docker" => format!("docker-image ({})", selector),
+            "github-release" => format!("github-release"),
+            "github-branch" => format!("github-branch ({})", selector),
+            _ => format!("{}", metadata.dep_type),
+        };
+
         println!(
-            "{:<35} {:<20} {:<20} {:<15}",
-            metadata.name, selector, friendly, metadata.dep_type
+            "{:<35} {:<30} {:<20}",
+            metadata.name, type_info, friendly
         );
     }
 
