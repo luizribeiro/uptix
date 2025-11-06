@@ -164,7 +164,7 @@ fn list_command_in_dir(root_path: &str) -> Result<()> {
         println!(
             "{:<35} {:<30} {:<20}",
             metadata.name,
-            metadata.type_display(),
+            metadata.type_display(entry),
             friendly
         );
     }

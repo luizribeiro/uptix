@@ -36,6 +36,22 @@ impl GitHubRelease {
   }"#,
         )?)
     }
+
+    /// Reconstructs a GitHubRelease dependency from a lock entry.
+    pub fn from_lock_entry(entry: &LockEntry) -> Option<GitHubRelease> {
+        let lock_data = serde_json::from_value::<github::GitHubLock>(entry.lock.clone()).ok()?;
+
+        Some(GitHubRelease {
+            owner: lock_data.owner,
+            repo: lock_data.repo,
+            fetchSubmodules: Some(lock_data.fetchSubmodules),
+            deepClone: Some(lock_data.deepClone),
+            leaveDotGit: Some(lock_data.leaveDotGit),
+            override_scheme: None,
+            override_domain: None,
+            override_nix_sha256: None,
+        })
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -128,6 +144,11 @@ impl Lockable for GitHubRelease {
             metadata,
             lock: serde_json::to_value(lock_data)?,
         })
+    }
+
+    fn type_display(&self) -> String {
+        // For releases, "latest" is implied and doesn't add information
+        "github-release".to_string()
     }
 }
 

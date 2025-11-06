@@ -38,21 +38,26 @@ impl DependencyMetadata {
     /// Returns a friendly display string for the dependency type,
     /// including relevant selector information where appropriate.
     /// This is computed on-demand and not stored in the lock file.
-    pub fn type_display(&self) -> String {
-        let selector = self.selected_version.as_deref().unwrap_or("unknown");
+    ///
+    /// This method requires the full lock entry to reconstruct the dependency.
+    pub fn type_display(&self, lock_entry: &LockEntry) -> String {
+        // Try to reconstruct the dependency and use its type_display method
+        if let Some(dep) = Dependency::from_lock_entry(lock_entry) {
+            return dep.type_display();
+        }
 
-        match self.dep_type.as_str() {
-            "docker" => format!("docker-image ({})", selector),
-            "github-branch" => format!("github-branch ({})", selector),
-            "github-release" => {
-                // For releases, "latest" is implied and doesn't add information
-                if selector == "latest" {
-                    "github-release".to_string()
-                } else {
-                    format!("github-release ({})", selector)
-                }
-            }
-            _ => self.dep_type.clone(),
+        // Fallback for unknown dependency types
+        self.dep_type.clone()
+    }
+}
+
+impl Dependency {
+    /// Returns a friendly display string for the dependency type.
+    pub fn type_display(&self) -> String {
+        match self {
+            Dependency::Docker(d) => d.type_display(),
+            Dependency::GitHubBranch(d) => d.type_display(),
+            Dependency::GitHubRelease(d) => d.type_display(),
         }
     }
 }
@@ -71,6 +76,11 @@ pub trait Lockable {
     fn key(&self) -> String;
     fn matches(&self, pattern: &str) -> bool;
     async fn lock_with_metadata(&self) -> Result<LockEntry, Error>;
+
+    /// Returns a friendly display string for the dependency type,
+    /// including relevant selector information where appropriate.
+    /// For example: "docker-image (15)", "github-branch (main)", "github-release"
+    fn type_display(&self) -> String;
 }
 
 impl Dependency {
@@ -88,6 +98,19 @@ impl Dependency {
                 context, &node,
             )?))),
             _ => Ok(None),
+        }
+    }
+
+    /// Reconstructs a Dependency from a lock entry by dispatching to the
+    /// appropriate dependency type based on dep_type.
+    pub fn from_lock_entry(entry: &LockEntry) -> Option<Dependency> {
+        match entry.metadata.dep_type.as_str() {
+            "docker" => Docker::from_lock_entry(entry).map(Dependency::Docker),
+            "github-branch" => GitHubBranch::from_lock_entry(entry).map(Dependency::GitHubBranch),
+            "github-release" => {
+                GitHubRelease::from_lock_entry(entry).map(Dependency::GitHubRelease)
+            }
+            _ => None,
         }
     }
 

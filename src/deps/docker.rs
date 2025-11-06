@@ -48,6 +48,13 @@ impl Docker {
         return Docker::from(text);
     }
 
+    /// Reconstructs a Docker dependency from a lock entry.
+    pub fn from_lock_entry(entry: &crate::deps::LockEntry) -> Option<Docker> {
+        let name = &entry.metadata.name;
+        let tag = entry.metadata.selected_version.as_ref()?;
+        Docker::from(&format!("{}:{}", name, tag)).ok()
+    }
+
     fn from(text: &str) -> Result<Docker, Error> {
         let caps = RE.captures(text).expect("Malformatted Docker image");
 
@@ -201,6 +208,10 @@ impl Lockable for Docker {
             metadata,
             lock: serde_json::Value::String(digest),
         })
+    }
+
+    fn type_display(&self) -> String {
+        format!("docker-image ({})", self.tag)
     }
 }
 
