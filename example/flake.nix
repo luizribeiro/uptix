@@ -1,16 +1,16 @@
 {
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/master";
     # For this example, we're using the local uptix source from the parent directory
     # In a real project, you would use the github URL instead:
     # uptix.url = "github:luizribeiro/uptix";
     uptix.url = "path:..";
-    uptix.inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = { nixpkgs, uptix, ... }:
+  outputs = { uptix, ... }:
     let
       system = "x86_64-linux";
+      # Use uptix's nixpkgs to ensure compatibility
+      nixpkgs = uptix.inputs.nixpkgs;
     in
     {
       nixosConfigurations.somehost = nixpkgs.lib.nixosSystem {
