@@ -28,8 +28,6 @@ pub struct DependencyMetadata {
     pub selected_version: Option<String>, // What user specified: "latest", "stable", "15", "main"
     #[serde(skip_serializing_if = "Option::is_none")]
     pub resolved_version: Option<String>, // Technical identifier: SHA, digest, or release tag
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub friendly_version: Option<String>, // Human-readable version: "15.4-alpine", "2024-01-15", etc
     pub dep_type: String,
     pub description: String,
 }
@@ -38,16 +36,17 @@ impl DependencyMetadata {
     /// Returns a friendly display string for the dependency type,
     /// including relevant selector information where appropriate.
     /// This is computed on-demand and not stored in the lock file.
-    ///
-    /// This method requires the full lock entry to reconstruct the dependency.
-    pub fn type_display(&self, lock_entry: &LockEntry) -> String {
-        // Try to reconstruct the dependency and use its type_display method
-        if let Some(dep) = Dependency::from_lock_entry(lock_entry) {
-            return dep.type_display();
-        }
+    pub fn type_display(&self, lock_entry: &LockEntry) -> Result<String, Error> {
+        let dep = Dependency::from_lock_entry(lock_entry)?;
+        Ok(dep.type_display())
+    }
 
-        // Fallback for unknown dependency types
-        self.dep_type.clone()
+    /// Returns a human-friendly version string for display.
+    /// This is computed on-demand and not stored in the lock file.
+    pub fn friendly_version_display(&self, lock_entry: &LockEntry) -> Result<String, Error> {
+        let resolved = self.resolved_version.as_deref().unwrap_or("pending");
+        let dep = Dependency::from_lock_entry(lock_entry)?;
+        Ok(dep.friendly_version(resolved))
     }
 }
 
@@ -58,6 +57,15 @@ impl Dependency {
             Dependency::Docker(d) => d.type_display(),
             Dependency::GitHubBranch(d) => d.type_display(),
             Dependency::GitHubRelease(d) => d.type_display(),
+        }
+    }
+
+    /// Returns a human-friendly version string for display.
+    pub fn friendly_version(&self, resolved_version: &str) -> String {
+        match self {
+            Dependency::Docker(d) => d.friendly_version(resolved_version),
+            Dependency::GitHubBranch(d) => d.friendly_version(resolved_version),
+            Dependency::GitHubRelease(d) => d.friendly_version(resolved_version),
         }
     }
 }
@@ -81,6 +89,11 @@ pub trait Lockable {
     /// including relevant selector information where appropriate.
     /// For example: "docker-image (15)", "github-branch (main)", "github-release"
     fn type_display(&self) -> String;
+
+    /// Returns a human-friendly version string for display.
+    /// Takes the resolved version and formats it appropriately for the dependency type.
+    /// For example: shortens SHA digests, truncates commit hashes, etc.
+    fn friendly_version(&self, resolved_version: &str) -> String;
 }
 
 impl Dependency {
@@ -103,14 +116,33 @@ impl Dependency {
 
     /// Reconstructs a Dependency from a lock entry by dispatching to the
     /// appropriate dependency type based on dep_type.
-    pub fn from_lock_entry(entry: &LockEntry) -> Option<Dependency> {
+    pub fn from_lock_entry(entry: &LockEntry) -> Result<Dependency, Error> {
         match entry.metadata.dep_type.as_str() {
-            "docker" => Docker::from_lock_entry(entry).map(Dependency::Docker),
-            "github-branch" => GitHubBranch::from_lock_entry(entry).map(Dependency::GitHubBranch),
-            "github-release" => {
-                GitHubRelease::from_lock_entry(entry).map(Dependency::GitHubRelease)
-            }
-            _ => None,
+            "docker" => Docker::from_lock_entry(entry)
+                .map(Dependency::Docker)
+                .ok_or_else(|| {
+                    Error::StringError(format!(
+                        "Failed to reconstruct Docker dependency from lock entry"
+                    ))
+                }),
+            "github-branch" => GitHubBranch::from_lock_entry(entry)
+                .map(Dependency::GitHubBranch)
+                .ok_or_else(|| {
+                    Error::StringError(format!(
+                        "Failed to reconstruct GitHubBranch dependency from lock entry"
+                    ))
+                }),
+            "github-release" => GitHubRelease::from_lock_entry(entry)
+                .map(Dependency::GitHubRelease)
+                .ok_or_else(|| {
+                    Error::StringError(format!(
+                        "Failed to reconstruct GitHubRelease dependency from lock entry"
+                    ))
+                }),
+            unknown => Err(Error::StringError(format!(
+                "Unknown dependency type: {}",
+                unknown
+            ))),
         }
     }
 

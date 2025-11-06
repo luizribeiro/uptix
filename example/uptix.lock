@@ -4,7 +4,6 @@
       "name": "luizribeiro/hello-world-rs",
       "selected_version": "main",
       "resolved_version": "69a9b5193833ea3c1efc390b1bba04a7e1862e78",
-      "friendly_version": "69a9b51",
       "dep_type": "github-branch",
       "description": "GitHub branch main from luizribeiro/hello-world-rs"
     },
@@ -23,7 +22,6 @@
       "name": "luizribeiro/hello-world-rs",
       "selected_version": "latest",
       "resolved_version": "v0.1.0",
-      "friendly_version": "v0.1.0",
       "dep_type": "github-release",
       "description": "GitHub release from luizribeiro/hello-world-rs"
     },
@@ -41,33 +39,30 @@
     "metadata": {
       "name": "homeassistant/home-assistant",
       "selected_version": "stable",
-      "resolved_version": "sha256:2eb83307a08de3287822b648fce4cbf1364423b55f2af623c149c6b21c2cef00",
-      "friendly_version": "sha256:2eb83307a08d",
+      "resolved_version": "sha256:8949aa75a417c0a71208255c999bfb3eea3e909ff2eab4ac4ca26a2cbd886f05",
       "dep_type": "docker",
       "description": "Docker image homeassistant/home-assistant:stable from registry-1.docker.io"
     },
-    "lock": "sha256:2eb83307a08de3287822b648fce4cbf1364423b55f2af623c149c6b21c2cef00"
+    "lock": "sha256:8949aa75a417c0a71208255c999bfb3eea3e909ff2eab4ac4ca26a2cbd886f05"
   },
   "koenkk/zigbee2mqtt:latest": {
     "metadata": {
       "name": "koenkk/zigbee2mqtt",
       "selected_version": "latest",
-      "resolved_version": "sha256:472f4f5ed5d4258056093ea5745bc0ada37628b667d7db4fb12c2ffea74b2703",
-      "friendly_version": "sha256:472f4f5ed5d4",
+      "resolved_version": "sha256:3baac2a3b74a9945fbbcb665b3e6e0ace5df2d49b5502e3d26b66a5454316e81",
       "dep_type": "docker",
       "description": "Docker image koenkk/zigbee2mqtt:latest from registry-1.docker.io"
     },
-    "lock": "sha256:472f4f5ed5d4258056093ea5745bc0ada37628b667d7db4fb12c2ffea74b2703"
+    "lock": "sha256:3baac2a3b74a9945fbbcb665b3e6e0ace5df2d49b5502e3d26b66a5454316e81"
   },
   "postgres:15": {
     "metadata": {
       "name": "postgres",
       "selected_version": "15",
-      "resolved_version": "sha256:bc51cf4f1fe02cce7ed2370b20128a9b00b4eb804573a77d2a0d877aaa9c82b1",
-      "friendly_version": "sha256:bc51cf4f1fe0",
+      "resolved_version": "sha256:822f8795764a670160640888508b2a68ea5c4b045012c2de17e1d0447bdbdc99",
       "dep_type": "docker",
       "description": "Docker image postgres:15 from registry-1.docker.io"
     },
-    "lock": "sha256:bc51cf4f1fe02cce7ed2370b20128a9b00b4eb804573a77d2a0d877aaa9c82b1"
+    "lock": "sha256:822f8795764a670160640888508b2a68ea5c4b045012c2de17e1d0447bdbdc99"
   }
 }

@@ -158,7 +158,6 @@ impl Lockable for GitHubBranch {
             name: format!("{}/{}", self.owner, self.repo),
             selected_version: Some(self.branch.clone()),
             resolved_version: Some(rev.clone()),
-            friendly_version: Some(rev.chars().take(7).collect()), // Show short SHA
             dep_type: "github-branch".to_string(),
             description: format!(
                 "GitHub branch {} from {}/{}",
@@ -174,6 +173,11 @@ impl Lockable for GitHubBranch {
 
     fn type_display(&self) -> String {
         format!("github-branch ({})", self.branch)
+    }
+
+    fn friendly_version(&self, resolved_version: &str) -> String {
+        // Show short SHA (first 7 chars) for commit hashes
+        resolved_version.chars().take(7).collect()
     }
 }
 

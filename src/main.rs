@@ -158,14 +158,12 @@ fn list_command_in_dir(root_path: &str) -> Result<()> {
     for (_key, entry) in &lock_file {
         let metadata = &entry.metadata;
 
-        let resolved = metadata.resolved_version.as_deref().unwrap_or("pending");
-        let friendly = metadata.friendly_version.as_deref().unwrap_or(resolved);
+        let type_display = metadata.type_display(entry).into_diagnostic()?;
+        let friendly = metadata.friendly_version_display(entry).into_diagnostic()?;
 
         println!(
             "{:<35} {:<30} {:<20}",
-            metadata.name,
-            metadata.type_display(entry),
-            friendly
+            metadata.name, type_display, friendly
         );
     }
 
@@ -228,9 +226,8 @@ fn display_dependency_details(key: &str, entry: &LockEntry) -> Result<()> {
         println!("Resolved Version: pending");
     }
 
-    if let Some(friendly) = &metadata.friendly_version {
-        println!("Friendly Version: {}", friendly);
-    }
+    let friendly = metadata.friendly_version_display(entry).into_diagnostic()?;
+    println!("Friendly Version: {}", friendly);
 
     println!("Type: {}", metadata.dep_type);
     println!("Description: {}", metadata.description);

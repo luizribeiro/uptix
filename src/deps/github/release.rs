@@ -134,8 +134,7 @@ impl Lockable for GitHubRelease {
         let metadata = DependencyMetadata {
             name: format!("{}/{}", self.owner, self.repo),
             selected_version: Some("latest".to_string()),
-            resolved_version: Some(rev.clone()),
-            friendly_version: Some(rev), // GitHub release tags are already human-friendly
+            resolved_version: Some(rev),
             dep_type: "github-release".to_string(),
             description: format!("GitHub release from {}/{}", self.owner, self.repo),
         };
@@ -149,6 +148,11 @@ impl Lockable for GitHubRelease {
     fn type_display(&self) -> String {
         // For releases, "latest" is implied and doesn't add information
         "github-release".to_string()
+    }
+
+    fn friendly_version(&self, resolved_version: &str) -> String {
+        // GitHub release tags are already human-friendly (e.g., "v0.1.0")
+        resolved_version.to_string()
     }
 }
 

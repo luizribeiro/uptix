@@ -192,11 +192,6 @@ impl Lockable for Docker {
             name: self.image.clone(),
             selected_version: Some(self.tag.clone()),
             resolved_version: Some(digest.clone()),
-            friendly_version: Some(if let Some(hash_part) = digest.strip_prefix("sha256:") {
-                format!("sha256:{}", &hash_part[..12.min(hash_part.len())])
-            } else {
-                digest.clone()
-            }),
             dep_type: "docker".to_string(),
             description: format!(
                 "Docker image {}:{} from {}",
@@ -212,6 +207,15 @@ impl Lockable for Docker {
 
     fn type_display(&self) -> String {
         format!("docker-image ({})", self.tag)
+    }
+
+    fn friendly_version(&self, resolved_version: &str) -> String {
+        // Shorten sha256 digests to first 12 chars for display
+        if let Some(hash_part) = resolved_version.strip_prefix("sha256:") {
+            format!("sha256:{}", &hash_part[..12.min(hash_part.len())])
+        } else {
+            resolved_version.to_string()
+        }
     }
 }
 
