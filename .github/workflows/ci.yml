@@ -45,10 +45,11 @@ jobs:
         continue-on-error: true
       - run: nix flake lock --update-input uptix
         working-directory: ./example/
-      - run: nix develop -c uptix
+      - run: nix develop -c uptix update
         working-directory: ./example/
-      - run: ./test-single-dep.sh
+      - run: nix develop -c ../test-single-dep.sh
         name: Test single dependency update
+        working-directory: ./example/
       - run: |
           nix build .\#nixosConfigurations.somehost.config.system.build.toplevel
         working-directory: ./example/
