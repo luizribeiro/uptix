@@ -12,12 +12,12 @@ use std::path::Path;
 #[command(author, version, about, long_about = None)]
 struct Args {
     #[command(subcommand)]
-    command: Option<Commands>,
+    command: Commands,
 }
 
 #[derive(Subcommand, Debug)]
 enum Commands {
-    /// Update dependencies (default if no command specified)
+    /// Update dependencies
     Update {
         /// Update only the specified dependency
         #[arg(short, long)]
@@ -38,12 +38,7 @@ enum Commands {
 async fn main() -> Result<()> {
     let args = Args::parse();
 
-    // Default to update command if none specified
-    let command = args
-        .command
-        .unwrap_or(Commands::Update { dependency: None });
-
-    match command {
+    match args.command {
         Commands::Update { dependency } => update_command(dependency).await,
         Commands::List => list_command(),
         Commands::Show { dependency } => show_command(&dependency),
@@ -277,14 +272,14 @@ mod tests {
     #[test]
     fn test_parse_update_command() {
         let args = Args::parse_from(&["uptix", "update"]);
-        matches!(args.command, Some(Commands::Update { .. }));
+        matches!(args.command, Commands::Update { .. });
     }
 
     #[test]
     fn test_parse_update_with_dependency() {
         let args = Args::parse_from(&["uptix", "update", "--dependency", "postgres:15"]);
         match args.command {
-            Some(Commands::Update { dependency }) => {
+            Commands::Update { dependency } => {
                 assert_eq!(dependency, Some("postgres:15".to_string()));
             }
             _ => panic!("Expected Update command"),
@@ -294,14 +289,14 @@ mod tests {
     #[test]
     fn test_parse_list_command() {
         let args = Args::parse_from(&["uptix", "list"]);
-        matches!(args.command, Some(Commands::List));
+        matches!(args.command, Commands::List);
     }
 
     #[test]
     fn test_parse_show_command() {
         let args = Args::parse_from(&["uptix", "show", "postgres:15"]);
         match args.command {
-            Some(Commands::Show { dependency }) => {
+            Commands::Show { dependency } => {
                 assert_eq!(dependency, "postgres:15");
             }
             _ => panic!("Expected Show command"),
@@ -311,14 +306,7 @@ mod tests {
     #[test]
     fn test_parse_init_command() {
         let args = Args::parse_from(&["uptix", "init"]);
-        matches!(args.command, Some(Commands::Init));
-    }
-
-    #[test]
-    fn test_default_to_update() {
-        let args = Args::parse_from(&["uptix"]);
-        assert!(args.command.is_none());
-        // In main(), this gets converted to Commands::Update { dependency: None }
+        matches!(args.command, Commands::Init);
     }
 
     #[test]
@@ -378,7 +366,7 @@ mod tests {
         // Test short flag -d for dependency
         let args = Args::parse_from(&["uptix", "update", "-d", "postgres:15"]);
         match args.command {
-            Some(Commands::Update { dependency }) => {
+            Commands::Update { dependency } => {
                 assert_eq!(dependency, Some("postgres:15".to_string()));
             }
             _ => panic!("Expected Update command"),

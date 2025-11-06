@@ -179,23 +179,6 @@ fn test_show_dependency_found() {
 }
 
 #[test]
-fn test_update_no_args_is_default() {
-    let temp_dir = TempDir::new().unwrap();
-
-    // Create empty lock file to prevent actual updates
-    fs::write(temp_dir.path().join("uptix.lock"), "{}").unwrap();
-
-    let output = Command::new(uptix_binary())
-        .current_dir(temp_dir.path())
-        .output()
-        .expect("Failed to execute uptix");
-
-    assert!(output.status.success());
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Found 0 nix files"));
-}
-
-#[test]
 fn test_update_specific_dependency() {
     let temp_dir = TempDir::new().unwrap();
 

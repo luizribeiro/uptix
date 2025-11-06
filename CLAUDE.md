@@ -10,8 +10,7 @@ uptix is a Rust tool for pinning and updating external dependencies in NixOS con
 
 ### Usage
 ```bash
-# Update all dependencies (default if no command specified)
-uptix
+# Update all dependencies
 uptix update
 
 # Update a single dependency - Docker images
