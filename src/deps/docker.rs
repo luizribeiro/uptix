@@ -248,6 +248,25 @@ impl Docker {
         return Ok(authenticated_result?);
     }
 
+    /// Helper to build an authenticated Docker registry client
+    async fn build_authenticated_client(
+        &self,
+        credentials: &Option<(String, String)>,
+        scope: &str,
+    ) -> Result<dkregistry::v2::Client, Error> {
+        let mut config = Client::configure()
+            .registry(self.registry.as_str())
+            .insecure_registry(!self.use_https);
+
+        if let Some((username, password)) = credentials {
+            config = config
+                .username(Some(username.clone()))
+                .password(Some(password.clone()));
+        }
+
+        Ok(config.build()?.authenticate(&[scope]).await?)
+    }
+
     /// Fetch image config with labels and creation timestamp
     /// Returns (friendly_version, timestamp) where friendly_version is either:
     /// - A semantic version from org.opencontainers.image.version label
@@ -272,54 +291,13 @@ impl Docker {
 
         // Try to get manifest with authentication
         let login_scope = format!("repository:{}:pull", image_name);
-        let scopes = vec![login_scope.as_str()];
 
-        let manifest_result = async {
-            let mut config = Client::configure()
-                .registry(self.registry.as_str())
-                .insecure_registry(!self.use_https)
-                .accepted_types(accepted_types.clone());
-
-            // Add credentials if available
-            if let Some((username, password)) = &credentials {
-                config = config
-                    .username(Some(username.clone()))
-                    .password(Some(password.clone()));
-            }
-
-            let dclient = config.build()?.authenticate(scopes.as_slice()).await?;
-            dclient
-                .get_manifest(image_name.as_str(), self.tag.as_str())
-                .await
-        }
-        .await;
-
-        // If we can't get the manifest, fall back to no metadata
-        let manifest = match manifest_result {
-            Ok(m) => m,
-            Err(_) => {
-                // Try without authentication as fallback
-                let mut config = Client::configure()
-                    .registry(self.registry.as_str())
-                    .insecure_registry(!self.use_https)
-                    .accepted_types(accepted_types);
-
-                // Add credentials if available
-                if let Some((username, password)) = &credentials {
-                    config = config
-                        .username(Some(username.clone()))
-                        .password(Some(password.clone()));
-                }
-
-                let dclient = config.build()?;
-                match dclient
-                    .get_manifest(image_name.as_str(), self.tag.as_str())
-                    .await
-                {
-                    Ok(m) => m,
-                    Err(_) => return Ok((None, None)),
-                }
-            }
+        let manifest = match self.build_authenticated_client(&credentials, &login_scope).await {
+            Ok(client) => match client.get_manifest(image_name.as_str(), self.tag.as_str()).await {
+                Ok(m) => m,
+                Err(_) => return Ok((None, None)),
+            },
+            Err(_) => return Ok((None, None)),
         };
 
         // Extract config digest from manifest
@@ -338,26 +316,12 @@ impl Docker {
                 let platform_digest = &first_manifest.unwrap().digest;
 
                 // Fetch the platform-specific manifest
-                let mut platform_config = Client::configure()
-                    .registry(self.registry.as_str())
-                    .insecure_registry(!self.use_https);
-
-                if let Some((username, password)) = &credentials {
-                    platform_config = platform_config
-                        .username(Some(username.clone()))
-                        .password(Some(password.clone()));
-                }
-
-                // Authenticate the client
-                let platform_client = match platform_config.build()?.authenticate(&[&login_scope]).await {
+                let platform_client = match self.build_authenticated_client(&credentials, &login_scope).await {
                     Ok(client) => client,
                     Err(_) => return Ok((None, None)),
                 };
 
-                let platform_manifest = match platform_client
-                    .get_manifest_and_ref(&image_name, platform_digest)
-                    .await
-                {
+                let platform_manifest = match platform_client.get_manifest_and_ref(&image_name, platform_digest).await {
                     Ok((m, _)) => m,
                     Err(_) => return Ok((None, None)),
                 };
@@ -372,24 +336,12 @@ impl Docker {
         };
 
         // Fetch the config blob
-        let mut config = Client::configure()
-            .registry(self.registry.as_str())
-            .insecure_registry(!self.use_https);
-
-        // Add credentials if available
-        if let Some((username, password)) = &credentials {
-            config = config
-                .username(Some(username.clone()))
-                .password(Some(password.clone()));
-        }
-
-        // Authenticate the client for blob fetch
-        let dclient = match config.build()?.authenticate(&[&login_scope]).await {
+        let client = match self.build_authenticated_client(&credentials, &login_scope).await {
             Ok(client) => client,
             Err(_) => return Ok((None, None)),
         };
 
-        let config_blob_bytes = match dclient.get_blob(&image_name, &config_digest).await {
+        let config_blob_bytes = match client.get_blob(&image_name, &config_digest).await {
             Ok(bytes) => bytes,
             Err(_) => return Ok((None, None)),
         };
