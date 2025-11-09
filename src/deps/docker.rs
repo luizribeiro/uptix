@@ -194,11 +194,13 @@ impl Docker {
                 .insecure_registry(!self.use_https)
                 .accepted_types(accepted_types.clone());
 
-            // Add credentials if available
-            if let Some((username, password)) = &credentials {
-                config = config
-                    .username(Some(username.clone()))
-                    .password(Some(password.clone()));
+            // Only use credentials for Docker Hub
+            if self.registry == DEFAULT_REGISTRY {
+                if let Some((username, password)) = &credentials {
+                    config = config
+                        .username(Some(username.clone()))
+                        .password(Some(password.clone()));
+                }
             }
 
             let dclient = config.build()?;
@@ -223,11 +225,13 @@ impl Docker {
                 .insecure_registry(!self.use_https)
                 .accepted_types(accepted_types);
 
-            // Add credentials if available
-            if let Some((username, password)) = &credentials {
-                config = config
-                    .username(Some(username.clone()))
-                    .password(Some(password.clone()));
+            // Only use credentials for Docker Hub
+            if self.registry == DEFAULT_REGISTRY {
+                if let Some((username, password)) = &credentials {
+                    config = config
+                        .username(Some(username.clone()))
+                        .password(Some(password.clone()));
+                }
             }
 
             let dclient = config.build()?.authenticate(scopes.as_slice()).await?;
@@ -258,10 +262,14 @@ impl Docker {
             .registry(self.registry.as_str())
             .insecure_registry(!self.use_https);
 
-        if let Some((username, password)) = credentials {
-            config = config
-                .username(Some(username.clone()))
-                .password(Some(password.clone()));
+        // Only use credentials if they're for the current registry
+        // DOCKERHUB_USERNAME/DOCKERHUB_TOKEN should only be used for Docker Hub
+        if self.registry == DEFAULT_REGISTRY {
+            if let Some((username, password)) = credentials {
+                config = config
+                    .username(Some(username.clone()))
+                    .password(Some(password.clone()));
+            }
         }
 
         Ok(config.build()?.authenticate(&[scope]).await?)
