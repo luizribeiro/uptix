@@ -48,6 +48,36 @@ uptix --lock-file /path/to/project/uptix.lock show "postgres:15"
 uptix --lock-file /tmp/custom.lock init
 ```
 
+### Docker Hub Authentication
+
+uptix supports Docker Hub authentication to avoid rate limiting (100 pulls/6hrs anonymous vs 200+ authenticated):
+
+**Option 1: Environment Variables (recommended for CI)**
+```bash
+export DOCKERHUB_USERNAME=your_username
+export DOCKERHUB_TOKEN=your_personal_access_token
+uptix update
+```
+
+**Option 2: ~/.docker/config.json (for local development)**
+```bash
+# Login with Docker CLI
+docker login
+
+# uptix will automatically use your credentials
+uptix update
+```
+
+**For GitHub Actions:**
+Add secrets `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` to your repository, then:
+```yaml
+- name: Update dependencies
+  env:
+    DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+    DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+  run: uptix update
+```
+
 ### Development
 ```bash
 # Build the project
