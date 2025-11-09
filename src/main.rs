@@ -244,6 +244,10 @@ fn display_dependency_details(key: &str, entry: &LockEntry) -> Result<()> {
     let friendly = metadata.friendly_version_display(entry).into_diagnostic()?;
     println!("Friendly Version: {}", friendly);
 
+    if let Some(timestamp) = &metadata.timestamp {
+        println!("Timestamp: {}", timestamp);
+    }
+
     println!("Type: {}", metadata.dep_type);
     println!("Description: {}", metadata.description);
 

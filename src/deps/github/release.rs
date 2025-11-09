@@ -57,6 +57,7 @@ impl GitHubRelease {
 #[derive(Serialize, Deserialize, Debug)]
 struct GitHubLatestReleaseInfo {
     tag_name: String,
+    published_at: String,
 }
 
 async fn fetch_github_latest_release(
@@ -109,7 +110,9 @@ impl Lockable for GitHubRelease {
     }
 
     async fn lock_with_metadata(&self) -> Result<LockEntry, Error> {
-        let rev = fetch_github_latest_release(self).await?.tag_name;
+        let release_info = fetch_github_latest_release(self).await?;
+        let rev = release_info.tag_name;
+        let timestamp = release_info.published_at;
         let sha256 = match &self.override_nix_sha256 {
             Some(s) => s.to_string(),
             None => github::compute_nix_sha256(
@@ -135,6 +138,7 @@ impl Lockable for GitHubRelease {
             name: format!("{}/{}", self.owner, self.repo),
             selected_version: Some("latest".to_string()),
             resolved_version: Some(rev),
+            timestamp: Some(timestamp),
             dep_type: "github-release".to_string(),
             description: format!("GitHub release from {}/{}", self.owner, self.repo),
         };
@@ -206,7 +210,8 @@ mod tests {
             .with_status(200)
             .with_body(
                 r#"{
-                    "tag_name": "v0.1.0"
+                    "tag_name": "v0.1.0",
+                    "published_at": "2024-11-01T09:15:30Z"
                 }"#,
             )
             .create();
@@ -261,7 +266,8 @@ mod tests {
             .with_status(200)
             .with_body(
                 r#"{
-                    "tag_name": "v0.1.0"
+                    "tag_name": "v0.1.0",
+                    "published_at": "2024-11-01T09:15:30Z"
                 }"#,
             )
             .create();

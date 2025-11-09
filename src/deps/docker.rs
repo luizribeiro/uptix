@@ -192,6 +192,7 @@ impl Lockable for Docker {
             name: self.image.clone(),
             selected_version: Some(self.tag.clone()),
             resolved_version: Some(digest.clone()),
+            timestamp: None, // TODO: Fetch image creation timestamp from manifest
             dep_type: "docker".to_string(),
             description: format!(
                 "Docker image {}:{} from {}",

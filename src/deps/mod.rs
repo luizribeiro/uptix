@@ -28,6 +28,8 @@ pub struct DependencyMetadata {
     pub selected_version: Option<String>, // What user specified: "latest", "stable", "15", "main"
     #[serde(skip_serializing_if = "Option::is_none")]
     pub resolved_version: Option<String>, // Technical identifier: SHA, digest, or release tag
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timestamp: Option<String>, // ISO 8601 timestamp of version creation/publication
     pub dep_type: String,
     pub description: String,
 }

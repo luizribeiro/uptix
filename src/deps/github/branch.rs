@@ -59,8 +59,24 @@ impl GitHubBranch {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+struct GitHubCommitAuthor {
+    #[allow(dead_code)]
+    name: String,
+    #[allow(dead_code)]
+    email: String,
+    date: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct GitHubCommitDetails {
+    message: String,
+    author: GitHubCommitAuthor,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 struct GitHubCommitInfo {
     sha: String,
+    commit: GitHubCommitDetails,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -132,7 +148,19 @@ impl Lockable for GitHubBranch {
     }
 
     async fn lock_with_metadata(&self) -> Result<LockEntry, Error> {
-        let rev = fetch_github_branch_info(self).await?.commit.sha;
+        let branch_info = fetch_github_branch_info(self).await?;
+        let rev = branch_info.commit.sha;
+        let commit_message = branch_info.commit.commit.message;
+        let timestamp = branch_info.commit.commit.author.date;
+
+        // Extract first line of commit message (truncate at ~50 chars for readability)
+        let commit_first_line = commit_message.lines().next().unwrap_or("");
+        let commit_summary = if commit_first_line.len() > 50 {
+            format!("{}...", &commit_first_line[..50])
+        } else {
+            commit_first_line.to_string()
+        };
+
         let sha256 = match &self.override_nix_sha256 {
             Some(s) => s.to_string(),
             None => github::compute_nix_sha256(
@@ -154,10 +182,15 @@ impl Lockable for GitHubBranch {
             leaveDotGit: self.leaveDotGit.unwrap_or(false),
         };
 
+        // Format friendly version with commit message: "a066890 (Add temperature calibration)"
+        let short_sha: String = rev.chars().take(7).collect();
+        let friendly_resolved = format!("{} ({})", short_sha, commit_summary);
+
         let metadata = DependencyMetadata {
             name: format!("{}/{}", self.owner, self.repo),
             selected_version: Some(self.branch.clone()),
-            resolved_version: Some(rev.clone()),
+            resolved_version: Some(friendly_resolved),
+            timestamp: Some(timestamp),
             dep_type: "github-branch".to_string(),
             description: format!(
                 "GitHub branch {} from {}/{}",
@@ -176,8 +209,8 @@ impl Lockable for GitHubBranch {
     }
 
     fn friendly_version(&self, resolved_version: &str) -> String {
-        // Show short SHA (first 7 chars) for commit hashes
-        resolved_version.chars().take(7).collect()
+        // resolved_version now contains the friendly format: "a066890 (commit message)"
+        resolved_version.to_string()
     }
 }
 
@@ -250,7 +283,15 @@ mod tests {
             .with_body(
                 r#"{
                     "commit": {
-                        "sha": "b28012d8b7f8ef54492c66f3a77074391e9818b9"
+                        "sha": "b28012d8b7f8ef54492c66f3a77074391e9818b9",
+                        "commit": {
+                            "message": "Add temperature calibration feature",
+                            "author": {
+                                "name": "Test Author",
+                                "email": "test@example.com",
+                                "date": "2024-11-01T14:32:10Z"
+                            }
+                        }
                     }
                 }"#,
             )
@@ -308,7 +349,15 @@ mod tests {
             .with_body(
                 r#"{
                     "commit": {
-                        "sha": "b28012d8b7f8ef54492c66f3a77074391e9818b9"
+                        "sha": "b28012d8b7f8ef54492c66f3a77074391e9818b9",
+                        "commit": {
+                            "message": "Add temperature calibration feature",
+                            "author": {
+                                "name": "Test Author",
+                                "email": "test@example.com",
+                                "date": "2024-11-01T14:32:10Z"
+                            }
+                        }
                     }
                 }"#,
             )
