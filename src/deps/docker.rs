@@ -3,9 +3,12 @@ use crate::error::Error;
 use crate::util::ParsingContext;
 use async_trait::async_trait;
 use dkregistry::mediatypes::MediaTypes;
+use dkregistry::v2::manifest::Manifest;
 use dkregistry::v2::Client;
 use regex::Regex;
 use rnix::{SyntaxKind, SyntaxNode};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(PartialEq, Clone, Debug)]
 pub struct Docker {
@@ -18,6 +21,21 @@ pub struct Docker {
 
 const DEFAULT_REGISTRY: &str = "registry-1.docker.io";
 const DEFAULT_TAG: &str = "latest";
+
+/// Partial representation of a Docker image config blob
+/// This is what we get when fetching the config blob referenced in the manifest
+#[derive(Debug, Deserialize, Serialize)]
+struct ImageConfig {
+    #[serde(rename = "created")]
+    created: Option<String>,
+    config: Option<ImageConfigDetails>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+struct ImageConfigDetails {
+    #[serde(rename = "Labels")]
+    labels: Option<HashMap<String, String>>,
+}
 
 lazy_static! {
     // Matches:
@@ -160,6 +178,111 @@ impl Docker {
 
         return Ok(authenticated_result?);
     }
+
+    /// Fetch image config with labels and creation timestamp
+    /// Returns (friendly_version, timestamp) where friendly_version is either:
+    /// - A semantic version from org.opencontainers.image.version label
+    /// - A date formatted as YYYY-MM-DD from the created timestamp
+    /// - The truncated digest as fallback
+    async fn fetch_image_metadata(&self) -> Result<(Option<String>, Option<String>), Error> {
+        // For Docker Hub, we need to handle library/ prefix for official images
+        let image_name = if self.registry == DEFAULT_REGISTRY && !self.image.contains('/') {
+            format!("library/{}", self.image)
+        } else {
+            self.image.clone()
+        };
+
+        // Common configuration settings
+        let accepted_types = Some(vec![
+            (MediaTypes::ManifestV2S2, Some(0.5)),
+            (MediaTypes::ManifestV2S1Signed, Some(0.4)),
+            (MediaTypes::ManifestList, Some(0.5)),
+            (MediaTypes::OCIImageIndexV1, Some(0.5)),
+        ]);
+
+        // Try to get manifest with authentication
+        let login_scope = format!("repository:{}:pull", image_name);
+        let scopes = vec![login_scope.as_str()];
+
+        let manifest_result = async {
+            let dclient = Client::configure()
+                .registry(self.registry.as_str())
+                .insecure_registry(!self.use_https)
+                .accepted_types(accepted_types.clone())
+                .build()?
+                .authenticate(scopes.as_slice())
+                .await?;
+            dclient
+                .get_manifest(image_name.as_str(), self.tag.as_str())
+                .await
+        }
+        .await;
+
+        // If we can't get the manifest, fall back to no metadata
+        let manifest = match manifest_result {
+            Ok(m) => m,
+            Err(_) => {
+                // Try without authentication as fallback
+                let dclient = Client::configure()
+                    .registry(self.registry.as_str())
+                    .insecure_registry(!self.use_https)
+                    .accepted_types(accepted_types)
+                    .build()?;
+                match dclient
+                    .get_manifest(image_name.as_str(), self.tag.as_str())
+                    .await
+                {
+                    Ok(m) => m,
+                    Err(_) => return Ok((None, None)),
+                }
+            }
+        };
+
+        // Extract config digest from manifest (only available in Schema2)
+        let config_digest = match manifest {
+            Manifest::S2(schema2) => schema2.manifest_spec.config().digest.clone(),
+            _ => return Ok((None, None)), // Schema1 and ManifestList don't have config blobs
+        };
+
+        // Fetch the config blob
+        let dclient = Client::configure()
+            .registry(self.registry.as_str())
+            .insecure_registry(!self.use_https)
+            .build()?;
+
+        let config_blob_bytes = match dclient.get_blob(&image_name, &config_digest).await {
+            Ok(bytes) => bytes,
+            Err(_) => return Ok((None, None)),
+        };
+
+        // Parse the config blob as JSON
+        let config: ImageConfig = match serde_json::from_slice(&config_blob_bytes) {
+            Ok(c) => c,
+            Err(_) => return Ok((None, None)),
+        };
+
+        // Extract timestamp
+        let timestamp = config.created;
+
+        // Try to get semantic version from labels
+        let friendly_version = config
+            .config
+            .and_then(|c| c.labels)
+            .and_then(|labels| {
+                labels
+                    .get("org.opencontainers.image.version")
+                    .or_else(|| labels.get("version"))
+                    .cloned()
+            })
+            .or_else(|| {
+                // Fall back to using creation date as YYYY-MM-DD
+                timestamp.as_ref().and_then(|ts| {
+                    ts.split('T').next().map(|date| date.to_string())
+                })
+            });
+
+        Ok((friendly_version, timestamp))
+    }
 }
 
 #[async_trait]
@@ -187,12 +310,18 @@ impl Lockable for Docker {
             }
         };
 
+        // Fetch image metadata (labels, creation timestamp)
+        let (friendly_version_opt, timestamp) = self.fetch_image_metadata().await?;
+
+        // Use friendly version from metadata, or fall back to digest
+        let resolved_version = friendly_version_opt.unwrap_or_else(|| digest.clone());
+
         // Create metadata with all fields populated
         let metadata = DependencyMetadata {
             name: self.image.clone(),
             selected_version: Some(self.tag.clone()),
-            resolved_version: Some(digest.clone()),
-            timestamp: None, // TODO: Fetch image creation timestamp from manifest
+            resolved_version: Some(resolved_version),
+            timestamp,
             dep_type: "docker".to_string(),
             description: format!(
                 "Docker image {}:{} from {}",
@@ -356,6 +485,169 @@ mod tests {
             Some("stable".to_string())
         );
         assert_eq!(lock_entry.lock.as_str().unwrap(), "sha256:foobar");
+        mockito::reset();
+    }
+
+    #[tokio::test]
+    async fn it_fetches_image_metadata_with_labels() {
+        let registry = mockito::server_address().to_string();
+
+        // Mock authentication flow
+        let _auth_mock = mockito::mock("GET", "/v2/")
+            .with_status(200)
+            .with_header(
+                "WWW-Authenticate",
+                format!(r#"Bearer realm="http://{}/token""#, registry).as_str(),
+            )
+            .with_body("{}")
+            .create();
+        let _token_mock = mockito::mock("GET", "/token")
+            .match_query(mockito::Matcher::Any)
+            .with_status(200)
+            .with_body(r#"{"token": "hunter2"}"#)
+            .create();
+
+        // Mock manifest request returning a Schema2 manifest
+        let _manifest_mock = mockito::mock("GET", "/v2/homeassistant/home-assistant/manifests/stable")
+            .with_status(200)
+            .with_header("content-type", "application/vnd.docker.distribution.manifest.v2+json")
+            .with_body(r#"{
+                "schemaVersion": 2,
+                "mediaType": "application/vnd.docker.distribution.manifest.v2+json",
+                "config": {
+                    "mediaType": "application/vnd.docker.container.image.v1+json",
+                    "size": 1234,
+                    "digest": "sha256:configdigest123"
+                },
+                "layers": []
+            }"#)
+            .create();
+
+        // Mock blob request returning image config with labels
+        let _blob_mock = mockito::mock("GET", "/v2/homeassistant/home-assistant/blobs/sha256:configdigest123")
+            .with_status(200)
+            .with_body(r#"{
+                "architecture": "amd64",
+                "created": "2024-11-03T10:23:45Z",
+                "config": {
+                    "Labels": {
+                        "org.opencontainers.image.version": "2024.11.3",
+                        "maintainer": "Home Assistant"
+                    }
+                }
+            }"#)
+            .create();
+
+        // Mock digest request for lock_with_metadata
+        let _digest_mock = mockito::mock("HEAD", "/v2/homeassistant/home-assistant/manifests/stable")
+            .with_status(200)
+            .with_header("docker-content-digest", "sha256:actualdigest456")
+            .create();
+
+        let dependency = Docker {
+            name: "homeassistant/home-assistant:stable".to_string(),
+            registry,
+            image: "homeassistant/home-assistant".to_string(),
+            tag: "stable".to_string(),
+            use_https: false,
+        };
+
+        let lock_entry = dependency.lock_with_metadata().await.unwrap();
+
+        // Check that we got the semantic version from the label
+        assert_eq!(
+            lock_entry.metadata.resolved_version,
+            Some("2024.11.3".to_string())
+        );
+
+        // Check that we got the timestamp
+        assert_eq!(
+            lock_entry.metadata.timestamp,
+            Some("2024-11-03T10:23:45Z".to_string())
+        );
+
+        // Check that the lock still contains the actual digest
+        assert_eq!(lock_entry.lock.as_str().unwrap(), "sha256:actualdigest456");
+
+        mockito::reset();
+    }
+
+    #[tokio::test]
+    async fn it_falls_back_to_date_when_no_version_label() {
+        let registry = mockito::server_address().to_string();
+
+        // Mock authentication
+        let _auth_mock = mockito::mock("GET", "/v2/")
+            .with_status(200)
+            .with_header(
+                "WWW-Authenticate",
+                format!(r#"Bearer realm="http://{}/token""#, registry).as_str(),
+            )
+            .with_body("{}")
+            .create();
+        let _token_mock = mockito::mock("GET", "/token")
+            .match_query(mockito::Matcher::Any)
+            .with_status(200)
+            .with_body(r#"{"token": "hunter2"}"#)
+            .create();
+
+        // Mock manifest
+        let _manifest_mock = mockito::mock("GET", "/v2/library/postgres/manifests/15")
+            .with_status(200)
+            .with_header("content-type", "application/vnd.docker.distribution.manifest.v2+json")
+            .with_body(r#"{
+                "schemaVersion": 2,
+                "mediaType": "application/vnd.docker.distribution.manifest.v2+json",
+                "config": {
+                    "mediaType": "application/vnd.docker.container.image.v1+json",
+                    "size": 1234,
+                    "digest": "sha256:postgresconfig"
+                },
+                "layers": []
+            }"#)
+            .create();
+
+        // Mock blob with no version label, only created date
+        let _blob_mock = mockito::mock("GET", "/v2/library/postgres/blobs/sha256:postgresconfig")
+            .with_status(200)
+            .with_body(r#"{
+                "architecture": "amd64",
+                "created": "2024-11-01T14:32:10Z",
+                "config": {
+                    "Labels": {
+                        "maintainer": "PostgreSQL"
+                    }
+                }
+            }"#)
+            .create();
+
+        // Mock digest request
+        let _digest_mock = mockito::mock("HEAD", "/v2/library/postgres/manifests/15")
+            .with_status(200)
+            .with_header("docker-content-digest", "sha256:postgresdigest")
+            .create();
+
+        let dependency = Docker {
+            name: "postgres:15".to_string(),
+            registry,
+            image: "postgres".to_string(),
+            tag: "15".to_string(),
+            use_https: false,
+        };
+
+        let lock_entry = dependency.lock_with_metadata().await.unwrap();
+
+        // Should fall back to date format YYYY-MM-DD
+        assert_eq!(
+            lock_entry.metadata.resolved_version,
+            Some("2024-11-01".to_string())
+        );
+
+        assert_eq!(
+            lock_entry.metadata.timestamp,
+            Some("2024-11-01T14:32:10Z".to_string())
+        );
+
         mockito::reset();
     }
 
