@@ -39,6 +39,13 @@ uptix show "owner/repo:branch"
 
 # Initialize an empty lock file
 uptix init
+
+# Use a custom lock file path (works with all commands)
+# This allows running uptix from outside the project directory
+uptix --lock-file /path/to/project/uptix.lock list
+uptix --lock-file /path/to/project/uptix.lock update
+uptix --lock-file /path/to/project/uptix.lock show "postgres:15"
+uptix --lock-file /tmp/custom.lock init
 ```
 
 ### Development

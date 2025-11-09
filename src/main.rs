@@ -6,11 +6,15 @@ use deps::{collect_file_dependencies, Dependency, LockEntry, LockFile};
 use miette::{IntoDiagnostic, Result};
 use std::fs;
 use std::io::Write;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
+    /// Path to the lock file (defaults to ./uptix.lock)
+    #[arg(short, long, global = true)]
+    lock_file: Option<PathBuf>,
+
     #[command(subcommand)]
     command: Commands,
 }
@@ -38,20 +42,42 @@ enum Commands {
 async fn main() -> Result<()> {
     let args = Args::parse();
 
+    // Determine root directory and lock file path
+    let (root_dir, lock_path) = if let Some(lock_file) = args.lock_file {
+        let lock_path_abs = lock_file.canonicalize().unwrap_or(lock_file.clone());
+        let root_dir = lock_path_abs
+            .parent()
+            .unwrap_or_else(|| Path::new("."))
+            .to_path_buf();
+        (root_dir, lock_path_abs)
+    } else {
+        (PathBuf::from("."), PathBuf::from("./uptix.lock"))
+    };
+
     match args.command {
-        Commands::Update { dependency } => update_command(dependency).await,
-        Commands::List => list_command(),
-        Commands::Show { dependency } => show_command(&dependency),
-        Commands::Init => init_command(),
+        Commands::Update { dependency } => {
+            update_command(&root_dir, &lock_path, dependency).await
+        }
+        Commands::List => list_command(&lock_path),
+        Commands::Show { dependency } => show_command(&lock_path, &dependency),
+        Commands::Init => init_command(&lock_path),
     }
 }
 
-async fn update_command(dependency: Option<String>) -> Result<()> {
-    update_command_in_dir(".", dependency).await
+async fn update_command(
+    root_dir: &Path,
+    lock_path: &Path,
+    dependency: Option<String>,
+) -> Result<()> {
+    update_command_in_dir(root_dir, lock_path, dependency).await
 }
 
-async fn update_command_in_dir(root_path: &str, dependency: Option<String>) -> Result<()> {
-    let all_files = util::discover_nix_files(root_path);
+async fn update_command_in_dir(
+    root_path: &Path,
+    lock_path: &Path,
+    dependency: Option<String>,
+) -> Result<()> {
+    let all_files = util::discover_nix_files(root_path.to_str().unwrap());
     println!("Found {} nix files", all_files.len());
 
     print!("Parsing files... ");
@@ -89,8 +115,6 @@ async fn update_command_in_dir(root_path: &str, dependency: Option<String>) -> R
         all_dependencies
     };
 
-    let lock_path = Path::new(root_path).join("uptix.lock");
-
     // Load existing lock file if it exists
     let mut lock_file: LockFile = if lock_path.exists() && dependency.is_some() {
         let existing_content = fs::read_to_string(&lock_path).into_diagnostic()?;
@@ -123,13 +147,11 @@ async fn update_command_in_dir(root_path: &str, dependency: Option<String>) -> R
     return Ok(());
 }
 
-fn list_command() -> Result<()> {
-    list_command_in_dir(".")
+fn list_command(lock_path: &Path) -> Result<()> {
+    list_command_in_dir(lock_path)
 }
 
-fn list_command_in_dir(root_path: &str) -> Result<()> {
-    let lock_path = Path::new(root_path).join("uptix.lock");
-
+fn list_command_in_dir(lock_path: &Path) -> Result<()> {
     if !lock_path.exists() {
         eprintln!("Error: No uptix.lock file found. Run 'uptix update' first.");
         return Ok(());
@@ -165,13 +187,11 @@ fn list_command_in_dir(root_path: &str) -> Result<()> {
     Ok(())
 }
 
-fn show_command(dependency: &str) -> Result<()> {
-    show_command_in_dir(".", dependency)
+fn show_command(lock_path: &Path, dependency: &str) -> Result<()> {
+    show_command_in_dir(lock_path, dependency)
 }
 
-fn show_command_in_dir(root_path: &str, dependency: &str) -> Result<()> {
-    let lock_path = Path::new(root_path).join("uptix.lock");
-
+fn show_command_in_dir(lock_path: &Path, dependency: &str) -> Result<()> {
     if !lock_path.exists() {
         eprintln!("Error: No uptix.lock file found. Run 'uptix update' first.");
         return Ok(());
@@ -236,12 +256,11 @@ fn display_dependency_details(key: &str, entry: &LockEntry) -> Result<()> {
     Ok(())
 }
 
-fn init_command() -> Result<()> {
-    init_command_in_dir(".")
+fn init_command(lock_path: &Path) -> Result<()> {
+    init_command_in_dir(lock_path)
 }
 
-fn init_command_in_dir(root_path: &str) -> Result<()> {
-    let lock_path = Path::new(root_path).join("uptix.lock");
+fn init_command_in_dir(lock_path: &Path) -> Result<()> {
     if lock_path.exists() {
         eprintln!("Error: uptix.lock already exists. Use 'uptix update' to update dependencies.");
         return Ok(());
@@ -313,13 +332,13 @@ mod tests {
     fn test_init_creates_empty_lock() {
         let temp_dir = TempDir::new().unwrap();
         let temp_path = temp_dir.path();
+        let lock_path = temp_path.join("uptix.lock");
 
         // Run init command in temp directory
-        let result = init_command_in_dir(temp_path.to_str().unwrap());
+        let result = init_command_in_dir(&lock_path);
         assert!(result.is_ok());
 
         // Verify lock file was created
-        let lock_path = temp_path.join("uptix.lock");
         assert!(lock_path.exists());
         let content = fs::read_to_string(&lock_path).unwrap();
         assert_eq!(content, "{}");
@@ -335,7 +354,7 @@ mod tests {
         fs::write(&lock_path, "{}").unwrap();
 
         // Run init command - should not error but print message
-        let result = init_command_in_dir(temp_path.to_str().unwrap());
+        let result = init_command_in_dir(&lock_path);
         assert!(result.is_ok());
 
         // Verify lock file wasn't overwritten
@@ -346,18 +365,20 @@ mod tests {
     #[test]
     fn test_list_with_no_dependencies() {
         let temp_dir = TempDir::new().unwrap();
+        let lock_path = temp_dir.path().join("uptix.lock");
 
         // No lock file exists, should succeed with error message
-        let result = list_command_in_dir(temp_dir.path().to_str().unwrap());
+        let result = list_command_in_dir(&lock_path);
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_show_dependency_not_found() {
         let temp_dir = TempDir::new().unwrap();
+        let lock_path = temp_dir.path().join("uptix.lock");
 
         // No lock file exists, should succeed with error message
-        let result = show_command_in_dir(temp_dir.path().to_str().unwrap(), "nonexistent:dep");
+        let result = show_command_in_dir(&lock_path, "nonexistent:dep");
         assert!(result.is_ok()); // Command succeeds but prints error message
     }
 
@@ -389,6 +410,7 @@ mod tests {
     fn test_show_with_lock_file() {
         let temp_dir = TempDir::new().unwrap();
         let temp_path = temp_dir.path();
+        let lock_path = temp_path.join("uptix.lock");
 
         // Create a lock file with a postgres dependency
         let lock_content = r#"{
@@ -403,10 +425,10 @@ mod tests {
                 "lock": "sha256:bc51cf4f1fe02cce7ed2370b20128a9b00b4eb804573a77d2a0d877aaa9c82b1"
             }
         }"#;
-        fs::write(temp_path.join("uptix.lock"), lock_content).unwrap();
+        fs::write(&lock_path, lock_content).unwrap();
 
         // Run show command
-        let result = show_command_in_dir(temp_path.to_str().unwrap(), "postgres:15");
+        let result = show_command_in_dir(&lock_path, "postgres:15");
         assert!(result.is_ok());
     }
 
@@ -414,6 +436,7 @@ mod tests {
     fn test_list_with_lock_file() {
         let temp_dir = TempDir::new().unwrap();
         let temp_path = temp_dir.path();
+        let lock_path = temp_path.join("uptix.lock");
 
         // Create a lock file with multiple dependencies
         let lock_content = r#"{
@@ -438,10 +461,10 @@ mod tests {
                 "lock": "sha256:472f4f5ed5d4258056093ea5745bc0ada37628b667d7db4fb12c2ffea74b2703"
             }
         }"#;
-        fs::write(temp_path.join("uptix.lock"), lock_content).unwrap();
+        fs::write(&lock_path, lock_content).unwrap();
 
         // Run list command
-        let result = list_command_in_dir(temp_path.to_str().unwrap());
+        let result = list_command_in_dir(&lock_path);
         assert!(result.is_ok());
     }
 
