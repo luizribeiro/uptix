@@ -2,3 +2,4 @@
 .direnv/
 result
 __pycache__
+.env

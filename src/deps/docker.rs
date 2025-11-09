@@ -582,19 +582,16 @@ mod tests {
         mockito::reset();
     }
 
-    // Note: This test is ignored because mocking the full Docker registry authentication flow
-    // is complex. The functionality is verified to work in production.
     #[tokio::test]
-    #[ignore]
     async fn it_fetches_image_metadata_with_labels() {
         let registry = mockito::server_address().to_string();
 
-        // Mock authentication flow
+        // Mock authentication flow - dkregistry expects 401 for auth challenge
         let _auth_mock = mockito::mock("GET", "/v2/")
-            .with_status(200)
+            .with_status(401)
             .with_header(
                 "WWW-Authenticate",
-                format!(r#"Bearer realm="http://{}/token""#, registry).as_str(),
+                format!(r#"Bearer realm="http://{}/token",service="registry""#, registry).as_str(),
             )
             .with_body("{}")
             .create();
@@ -605,34 +602,29 @@ mod tests {
             .create();
 
         // Mock manifest request returning a Schema2 manifest
+        // The config digest must match the SHA256 of the blob content
+        let blob_content = r#"{"architecture":"amd64","created":"2024-11-03T10:23:45Z","config":{"Labels":{"org.opencontainers.image.version":"2024.11.3","maintainer":"Home Assistant"}}}"#;
+        let config_digest = "sha256:74f41486f45b7ac13af8770839bf41734f9240efbaad0bfdf4fb8728244c36cf";
+
         let _manifest_mock = mockito::mock("GET", "/v2/homeassistant/home-assistant/manifests/stable")
             .with_status(200)
             .with_header("content-type", "application/vnd.docker.distribution.manifest.v2+json")
-            .with_body(r#"{
+            .with_body(format!(r#"{{
                 "schemaVersion": 2,
                 "mediaType": "application/vnd.docker.distribution.manifest.v2+json",
-                "config": {
+                "config": {{
                     "mediaType": "application/vnd.docker.container.image.v1+json",
-                    "size": 1234,
-                    "digest": "sha256:configdigest123"
-                },
+                    "size": {},
+                    "digest": "{}"
+                }},
                 "layers": []
-            }"#)
+            }}"#, blob_content.len(), config_digest))
             .create();
 
         // Mock blob request returning image config with labels
-        let _blob_mock = mockito::mock("GET", "/v2/homeassistant/home-assistant/blobs/sha256:configdigest123")
+        let _blob_mock = mockito::mock("GET", format!("/v2/homeassistant/home-assistant/blobs/{}", config_digest).as_str())
             .with_status(200)
-            .with_body(r#"{
-                "architecture": "amd64",
-                "created": "2024-11-03T10:23:45Z",
-                "config": {
-                    "Labels": {
-                        "org.opencontainers.image.version": "2024.11.3",
-                        "maintainer": "Home Assistant"
-                    }
-                }
-            }"#)
+            .with_body(blob_content)
             .create();
 
         // Mock digest request for lock_with_metadata
@@ -669,19 +661,16 @@ mod tests {
         mockito::reset();
     }
 
-    // Note: This test is ignored because mocking the full Docker registry authentication flow
-    // is complex. The functionality is verified to work in production.
     #[tokio::test]
-    #[ignore]
     async fn it_falls_back_to_date_when_no_version_label() {
         let registry = mockito::server_address().to_string();
 
-        // Mock authentication
+        // Mock authentication - dkregistry expects 401 for auth challenge
         let _auth_mock = mockito::mock("GET", "/v2/")
-            .with_status(200)
+            .with_status(401)
             .with_header(
                 "WWW-Authenticate",
-                format!(r#"Bearer realm="http://{}/token""#, registry).as_str(),
+                format!(r#"Bearer realm="http://{}/token",service="registry""#, registry).as_str(),
             )
             .with_body("{}")
             .create();
@@ -691,47 +680,47 @@ mod tests {
             .with_body(r#"{"token": "hunter2"}"#)
             .create();
 
+        // Use a namespaced image to avoid the library/ prefix logic
+        let image_name = "mycompany/database";
+        let tag = "v15";
+
         // Mock manifest
-        let _manifest_mock = mockito::mock("GET", "/v2/library/postgres/manifests/15")
+        // The config digest must match the SHA256 of the blob content
+        let blob_content = r#"{"architecture":"amd64","created":"2024-11-01T14:32:10Z","config":{"Labels":{"maintainer":"My Company"}}}"#;
+        let config_digest = "sha256:6c583f785142603ae46e0750c14d43670c3ab0d2ed46e96dc322149de7efa736";
+
+        let _manifest_mock = mockito::mock("GET", format!("/v2/{}/manifests/{}", image_name, tag).as_str())
             .with_status(200)
             .with_header("content-type", "application/vnd.docker.distribution.manifest.v2+json")
-            .with_body(r#"{
+            .with_body(format!(r#"{{
                 "schemaVersion": 2,
                 "mediaType": "application/vnd.docker.distribution.manifest.v2+json",
-                "config": {
+                "config": {{
                     "mediaType": "application/vnd.docker.container.image.v1+json",
-                    "size": 1234,
-                    "digest": "sha256:postgresconfig"
-                },
+                    "size": {},
+                    "digest": "{}"
+                }},
                 "layers": []
-            }"#)
+            }}"#, blob_content.len(), config_digest))
             .create();
 
         // Mock blob with no version label, only created date
-        let _blob_mock = mockito::mock("GET", "/v2/library/postgres/blobs/sha256:postgresconfig")
+        let _blob_mock = mockito::mock("GET", format!("/v2/{}/blobs/{}", image_name, config_digest).as_str())
             .with_status(200)
-            .with_body(r#"{
-                "architecture": "amd64",
-                "created": "2024-11-01T14:32:10Z",
-                "config": {
-                    "Labels": {
-                        "maintainer": "PostgreSQL"
-                    }
-                }
-            }"#)
+            .with_body(blob_content)
             .create();
 
         // Mock digest request
-        let _digest_mock = mockito::mock("HEAD", "/v2/library/postgres/manifests/15")
+        let _digest_mock = mockito::mock("HEAD", format!("/v2/{}/manifests/{}", image_name, tag).as_str())
             .with_status(200)
-            .with_header("docker-content-digest", "sha256:postgresdigest")
+            .with_header("docker-content-digest", "sha256:actualdigest")
             .create();
 
         let dependency = Docker {
-            name: "postgres:15".to_string(),
+            name: format!("{}:{}", image_name, tag),
             registry,
-            image: "postgres".to_string(),
-            tag: "15".to_string(),
+            image: image_name.to_string(),
+            tag: tag.to_string(),
             use_https: false,
         };
 
