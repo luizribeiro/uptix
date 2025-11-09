@@ -41,7 +41,8 @@
     "metadata": {
       "name": "homeassistant/home-assistant",
       "selected_version": "stable",
-      "resolved_version": "sha256:c11dd7c74039223c43079d700aa559d6dc61e8e0b38a08d651f91d1bc550cff5",
+      "resolved_version": "2025.11.1",
+      "timestamp": "2025-11-07T21:41:33.919640751Z",
       "dep_type": "docker",
       "description": "Docker image homeassistant/home-assistant:stable from registry-1.docker.io"
     },

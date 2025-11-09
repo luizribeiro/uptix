@@ -261,12 +261,10 @@ impl Docker {
             self.image.clone()
         };
 
-        // Common configuration settings
+        // Only request Schema2 manifests for metadata extraction
+        // ManifestList doesn't contain config blobs directly
         let accepted_types = Some(vec![
-            (MediaTypes::ManifestV2S2, Some(0.5)),
-            (MediaTypes::ManifestV2S1Signed, Some(0.4)),
-            (MediaTypes::ManifestList, Some(0.5)),
-            (MediaTypes::OCIImageIndexV1, Some(0.5)),
+            (MediaTypes::ManifestV2S2, Some(1.0)),
         ]);
 
         // Get credentials if available
@@ -324,10 +322,53 @@ impl Docker {
             }
         };
 
-        // Extract config digest from manifest (only available in Schema2)
+        // Extract config digest from manifest
         let config_digest = match manifest {
-            Manifest::S2(schema2) => schema2.manifest_spec.config().digest.clone(),
-            _ => return Ok((None, None)), // Schema1 and ManifestList don't have config blobs
+            Manifest::S2(schema2) => {
+                // Schema2 manifest has config blob directly
+                schema2.manifest_spec.config().digest.clone()
+            }
+            Manifest::ML(manifest_list) => {
+                // ManifestList (multi-platform images) - fetch first platform's manifest
+                // All platforms should have the same version, just different architectures
+                let first_manifest = manifest_list.manifests.first();
+                if first_manifest.is_none() {
+                    return Ok((None, None));
+                }
+                let platform_digest = &first_manifest.unwrap().digest;
+
+                // Fetch the platform-specific manifest
+                let mut platform_config = Client::configure()
+                    .registry(self.registry.as_str())
+                    .insecure_registry(!self.use_https);
+
+                if let Some((username, password)) = &credentials {
+                    platform_config = platform_config
+                        .username(Some(username.clone()))
+                        .password(Some(password.clone()));
+                }
+
+                // Authenticate the client
+                let platform_client = match platform_config.build()?.authenticate(&[&login_scope]).await {
+                    Ok(client) => client,
+                    Err(_) => return Ok((None, None)),
+                };
+
+                let platform_manifest = match platform_client
+                    .get_manifest_and_ref(&image_name, platform_digest)
+                    .await
+                {
+                    Ok((m, _)) => m,
+                    Err(_) => return Ok((None, None)),
+                };
+
+                // Extract config from the platform-specific manifest
+                match platform_manifest {
+                    Manifest::S2(s2) => s2.manifest_spec.config().digest.clone(),
+                    _ => return Ok((None, None)),
+                }
+            }
+            _ => return Ok((None, None)),
         };
 
         // Fetch the config blob
@@ -342,7 +383,11 @@ impl Docker {
                 .password(Some(password.clone()));
         }
 
-        let dclient = config.build()?;
+        // Authenticate the client for blob fetch
+        let dclient = match config.build()?.authenticate(&[&login_scope]).await {
+            Ok(client) => client,
+            Err(_) => return Ok((None, None)),
+        };
 
         let config_blob_bytes = match dclient.get_blob(&image_name, &config_digest).await {
             Ok(bytes) => bytes,
