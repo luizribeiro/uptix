@@ -66,6 +66,11 @@ lazy_static! {
 }
 
 impl Docker {
+    /// Check if this Docker image uses Docker Hub registry
+    fn is_docker_hub(&self) -> bool {
+        self.registry == DEFAULT_REGISTRY
+    }
+
     pub fn new(context: &ParsingContext, node: &SyntaxNode) -> Result<Docker, Error> {
         let string_node = assert_kind(
             context,
@@ -189,7 +194,7 @@ impl Docker {
 
     async fn latest_digest(&self) -> Result<Option<String>, Error> {
         // For Docker Hub (registry-1.docker.io), we need to handle library/ prefix for official images
-        let image_name = if self.registry == DEFAULT_REGISTRY && !self.image.contains('/') {
+        let image_name = if self.is_docker_hub() && !self.image.contains('/') {
             format!("library/{}", self.image)
         } else {
             self.image.clone()
@@ -268,7 +273,7 @@ impl Docker {
     ) -> dkregistry::v2::Config {
         // Only use credentials if they're for Docker Hub
         // DOCKERHUB_USERNAME/DOCKERHUB_TOKEN should only be used for Docker Hub
-        if self.registry == DEFAULT_REGISTRY {
+        if self.is_docker_hub() {
             if let Some((username, password)) = credentials {
                 config = config
                     .username(Some(username.clone()))
@@ -300,7 +305,7 @@ impl Docker {
     /// - The truncated digest as fallback
     async fn fetch_image_metadata(&self) -> Result<(Option<String>, Option<String>), Error> {
         // For Docker Hub, we need to handle library/ prefix for official images
-        let image_name = if self.registry == DEFAULT_REGISTRY && !self.image.contains('/') {
+        let image_name = if self.is_docker_hub() && !self.image.contains('/') {
             format!("library/{}", self.image)
         } else {
             self.image.clone()
@@ -409,7 +414,7 @@ impl Docker {
         let mut cmd = Command::new("nix-prefetch-docker");
 
         // Only add Docker Hub credentials if this is a Docker Hub registry
-        if self.registry == DEFAULT_REGISTRY {
+        if self.is_docker_hub() {
             if let Some((username, token)) = Self::get_credentials() {
                 cmd.env("DOCKERHUB_USERNAME", username);
                 cmd.env("DOCKERHUB_TOKEN", token);
@@ -418,7 +423,7 @@ impl Docker {
 
         // For custom registries, we need to include the registry in the image name
         // For Docker Hub, just use the image name (e.g., "postgres" or "homeassistant/home-assistant")
-        let image_name = if self.registry == DEFAULT_REGISTRY {
+        let image_name = if self.is_docker_hub() {
             self.image.clone()
         } else {
             format!("{}/{}", self.registry, self.image)
@@ -487,7 +492,7 @@ impl Lockable for Docker {
         // Match against the full name (e.g., "postgres:15")
         self.name == pattern ||
         // Also match without tag if pattern doesn't include one and it's a Docker Hub image
-        (self.registry == DEFAULT_REGISTRY && self.image == pattern && !pattern.contains(':'))
+        (self.is_docker_hub() && self.image == pattern && !pattern.contains(':'))
     }
 
     async fn lock_with_metadata(&self) -> Result<LockEntry, Error> {
@@ -860,7 +865,7 @@ mod tests {
         };
 
         // Extract the code that computes the image name with the library/ prefix
-        let image_name = if docker.registry == DEFAULT_REGISTRY && !docker.image.contains('/') {
+        let image_name = if docker.is_docker_hub() && !docker.image.contains('/') {
             format!("library/{}", docker.image)
         } else {
             docker.image.clone()
@@ -878,7 +883,7 @@ mod tests {
             use_https: true,
         };
 
-        let image_name = if docker.registry == DEFAULT_REGISTRY && !docker.image.contains('/') {
+        let image_name = if docker.is_docker_hub() && !docker.image.contains('/') {
             format!("library/{}", docker.image)
         } else {
             docker.image.clone()
@@ -896,7 +901,7 @@ mod tests {
             use_https: true,
         };
 
-        let image_name = if docker.registry == DEFAULT_REGISTRY && !docker.image.contains('/') {
+        let image_name = if docker.is_docker_hub() && !docker.image.contains('/') {
             format!("library/{}", docker.image)
         } else {
             docker.image.clone()
