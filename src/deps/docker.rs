@@ -9,6 +9,8 @@ use regex::Regex;
 use rnix::{SyntaxKind, SyntaxNode};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+#[cfg(not(test))]
+use std::process::Command;
 
 #[derive(PartialEq, Clone, Debug)]
 pub struct Docker {
@@ -35,6 +37,23 @@ struct ImageConfig {
 struct ImageConfigDetails {
     #[serde(rename = "Labels")]
     labels: Option<HashMap<String, String>>,
+}
+
+/// Docker lock data containing both the image digest and Nix store hash
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DockerLock {
+    image_digest: String,
+    sha256: String,
+}
+
+/// Output from nix-prefetch-docker
+#[cfg(not(test))]
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NixPrefetchDockerOutput {
+    image_digest: String,
+    hash: String,
 }
 
 lazy_static! {
@@ -189,19 +208,12 @@ impl Docker {
 
         // First try: Direct access without authentication (for public images)
         let direct_result = async {
-            let mut config = Client::configure()
+            let config = Client::configure()
                 .registry(self.registry.as_str())
                 .insecure_registry(!self.use_https)
                 .accepted_types(accepted_types.clone());
 
-            // Only use credentials for Docker Hub
-            if self.registry == DEFAULT_REGISTRY {
-                if let Some((username, password)) = &credentials {
-                    config = config
-                        .username(Some(username.clone()))
-                        .password(Some(password.clone()));
-                }
-            }
+            let config = self.apply_dockerhub_credentials(config, &credentials);
 
             let dclient = config.build()?;
             dclient
@@ -220,19 +232,12 @@ impl Docker {
         let scopes = vec![login_scope.as_str()];
 
         let authenticated_result = async {
-            let mut config = Client::configure()
+            let config = Client::configure()
                 .registry(self.registry.as_str())
                 .insecure_registry(!self.use_https)
                 .accepted_types(accepted_types);
 
-            // Only use credentials for Docker Hub
-            if self.registry == DEFAULT_REGISTRY {
-                if let Some((username, password)) = &credentials {
-                    config = config
-                        .username(Some(username.clone()))
-                        .password(Some(password.clone()));
-                }
-            }
+            let config = self.apply_dockerhub_credentials(config, &credentials);
 
             let dclient = config.build()?.authenticate(scopes.as_slice()).await?;
             dclient
@@ -252,17 +257,16 @@ impl Docker {
         return Ok(authenticated_result?);
     }
 
-    /// Helper to build an authenticated Docker registry client
-    async fn build_authenticated_client(
+    /// Apply Docker Hub credentials to a client config if appropriate
+    /// Only applies credentials if:
+    /// 1. Credentials are available
+    /// 2. The registry is Docker Hub (not other registries)
+    fn apply_dockerhub_credentials(
         &self,
+        mut config: dkregistry::v2::Config,
         credentials: &Option<(String, String)>,
-        scope: &str,
-    ) -> Result<dkregistry::v2::Client, Error> {
-        let mut config = Client::configure()
-            .registry(self.registry.as_str())
-            .insecure_registry(!self.use_https);
-
-        // Only use credentials if they're for the current registry
+    ) -> dkregistry::v2::Config {
+        // Only use credentials if they're for Docker Hub
         // DOCKERHUB_USERNAME/DOCKERHUB_TOKEN should only be used for Docker Hub
         if self.registry == DEFAULT_REGISTRY {
             if let Some((username, password)) = credentials {
@@ -271,6 +275,20 @@ impl Docker {
                     .password(Some(password.clone()));
             }
         }
+        config
+    }
+
+    /// Helper to build an authenticated Docker registry client
+    async fn build_authenticated_client(
+        &self,
+        credentials: &Option<(String, String)>,
+        scope: &str,
+    ) -> Result<dkregistry::v2::Client, Error> {
+        let config = Client::configure()
+            .registry(self.registry.as_str())
+            .insecure_registry(!self.use_https);
+
+        let config = self.apply_dockerhub_credentials(config, credentials);
 
         Ok(config.build()?.authenticate(&[scope]).await?)
     }
@@ -290,7 +308,7 @@ impl Docker {
 
         // Only request Schema2 manifests for metadata extraction
         // ManifestList doesn't contain config blobs directly
-        let accepted_types = Some(vec![
+        let _accepted_types = Some(vec![
             (MediaTypes::ManifestV2S2, Some(1.0)),
         ]);
 
@@ -382,6 +400,81 @@ impl Docker {
 
         Ok((friendly_version, timestamp))
     }
+
+    /// Compute the Nix store hash for this Docker image using nix-prefetch-docker
+    /// Returns (imageDigest, nixHash)
+    #[cfg(not(test))]
+    async fn compute_nix_hash(&self) -> Result<(String, String), Error> {
+        // Set up the command
+        let mut cmd = Command::new("nix-prefetch-docker");
+
+        // Only add Docker Hub credentials if this is a Docker Hub registry
+        if self.registry == DEFAULT_REGISTRY {
+            if let Some((username, token)) = Self::get_credentials() {
+                cmd.env("DOCKERHUB_USERNAME", username);
+                cmd.env("DOCKERHUB_TOKEN", token);
+            }
+        }
+
+        // For custom registries, we need to include the registry in the image name
+        // For Docker Hub, just use the image name (e.g., "postgres" or "homeassistant/home-assistant")
+        let image_name = if self.registry == DEFAULT_REGISTRY {
+            self.image.clone()
+        } else {
+            format!("{}/{}", self.registry, self.image)
+        };
+
+        // Build the command
+        cmd.arg("--json")
+            .arg("--quiet")
+            .arg("--image-name")
+            .arg(&image_name)
+            .arg("--image-tag")
+            .arg(&self.tag);
+
+        // Execute the command
+        let output = cmd.output().map_err(|e| {
+            Error::StringError(format!(
+                "Failed to execute nix-prefetch-docker: {}. Make sure nix-prefetch-docker is installed.",
+                e
+            ))
+        })?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(Error::StringError(format!(
+                "nix-prefetch-docker failed: {}",
+                stderr
+            )));
+        }
+
+        // Parse the JSON output
+        let result: NixPrefetchDockerOutput = serde_json::from_slice(&output.stdout)
+            .map_err(|e| {
+                Error::StringError(format!("Failed to parse nix-prefetch-docker output: {}", e))
+            })?;
+
+        Ok((result.image_digest, result.hash))
+    }
+
+    /// Mock implementation for tests - returns the digest from the registry API
+    /// plus a hard-coded Nix hash
+    #[cfg(test)]
+    async fn compute_nix_hash(&self) -> Result<(String, String), Error> {
+        // Get the digest from the registry API (which is mocked in tests)
+        let digest = match self.latest_digest().await? {
+            Some(d) => d,
+            None => {
+                return Err(Error::StringError(format!(
+                    "Could not find digest for image {} on registry",
+                    self.name,
+                )))
+            }
+        };
+
+        // Return a hard-coded mock Nix hash
+        Ok((digest, "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=".to_string()))
+    }
 }
 
 #[async_trait]
@@ -398,22 +491,14 @@ impl Lockable for Docker {
     }
 
     async fn lock_with_metadata(&self) -> Result<LockEntry, Error> {
-        // Fetch the digest
-        let digest = match self.latest_digest().await? {
-            Some(d) => d,
-            None => {
-                return Err(Error::StringError(format!(
-                    "Could not find digest for image {} on registry",
-                    self.name,
-                )))
-            }
-        };
-
         // Fetch image metadata (labels, creation timestamp)
         let (friendly_version_opt, timestamp) = self.fetch_image_metadata().await?;
 
+        // Compute both the image digest and Nix store hash
+        let (image_digest, nix_hash) = self.compute_nix_hash().await?;
+
         // Use friendly version from metadata, or fall back to digest
-        let resolved_version = friendly_version_opt.unwrap_or_else(|| digest.clone());
+        let resolved_version = friendly_version_opt.unwrap_or_else(|| image_digest.clone());
 
         // Create metadata with all fields populated
         let metadata = DependencyMetadata {
@@ -428,9 +513,15 @@ impl Lockable for Docker {
             ),
         };
 
+        // Create the lock data with both hashes
+        let lock_data = DockerLock {
+            image_digest,
+            sha256: nix_hash,
+        };
+
         Ok(LockEntry {
             metadata,
-            lock: serde_json::Value::String(digest),
+            lock: serde_json::to_value(lock_data).unwrap(),
         })
     }
 
@@ -583,7 +674,12 @@ mod tests {
             lock_entry.metadata.selected_version,
             Some("stable".to_string())
         );
-        assert_eq!(lock_entry.lock.as_str().unwrap(), "sha256:foobar");
+
+        // Check the new lock format with both hashes
+        let lock_obj = lock_entry.lock.as_object().unwrap();
+        assert_eq!(lock_obj.get("imageDigest").unwrap().as_str().unwrap(), "sha256:foobar");
+        assert_eq!(lock_obj.get("sha256").unwrap().as_str().unwrap(), "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=");
+
         mockito::reset();
     }
 
@@ -660,8 +756,10 @@ mod tests {
             Some("2024-11-03T10:23:45Z".to_string())
         );
 
-        // Check that the lock still contains the actual digest
-        assert_eq!(lock_entry.lock.as_str().unwrap(), "sha256:actualdigest456");
+        // Check that the lock contains both hashes in the new format
+        let lock_obj = lock_entry.lock.as_object().unwrap();
+        assert_eq!(lock_obj.get("imageDigest").unwrap().as_str().unwrap(), "sha256:actualdigest456");
+        assert_eq!(lock_obj.get("sha256").unwrap().as_str().unwrap(), "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=");
 
         mockito::reset();
     }
