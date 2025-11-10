@@ -31,7 +31,7 @@ pub enum Error {
         expected_type: String,
         help: String,
     },
-    #[error("unknown error")]
-    #[diagnostic(code(uptix::error::unknown_error))]
+    #[error("{0}")]
+    #[diagnostic(code(uptix::error::string_error))]
     StringError(String),
 }

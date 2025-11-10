@@ -36,7 +36,7 @@
         '';
         postInstall = ''
           wrapProgram $out/bin/uptix \
-            --prefix PATH : ${lib.makeBinPath [ nix-prefetch-git ]}
+            --prefix PATH : ${lib.makeBinPath [ nix-prefetch-git nix-prefetch-docker ]}
         '';
 
         meta = {
@@ -53,6 +53,7 @@
         nativeBuildInputs = [
           # dependencies which go on the nix wrapper
           nix-prefetch-git
+          nix-prefetch-docker
           # tools for development
           rustc
           cargo
