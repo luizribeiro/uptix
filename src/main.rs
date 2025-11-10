@@ -77,6 +77,11 @@ async fn update_command_in_dir(
     lock_path: &Path,
     dependency: Option<String>,
 ) -> Result<()> {
+    // Validate lock file format first, before doing any expensive operations
+    if lock_path.exists() {
+        validate_lock_file(lock_path)?;
+    }
+
     let all_files = util::discover_nix_files(root_path.to_str().unwrap());
     println!("Found {} nix files", all_files.len());
 
@@ -476,5 +481,37 @@ mod tests {
     fn test_update_preserves_existing_entries() {
         // This is tested via integration tests since it requires actual async operations
         // See test_single_dep.sh for the full integration test
+    }
+}
+
+fn validate_lock_file(lock_path: &Path) -> Result<()> {
+    let existing_content = fs::read_to_string(&lock_path).into_diagnostic()?;
+
+    // Try to parse as uptix lock file
+    match serde_json::from_str::<LockFile>(&existing_content) {
+        Ok(lock) => {
+            // Validate it's actually an uptix lock by checking if entries have metadata
+            if !lock.is_empty() {
+                let first_entry = lock.values().next().unwrap();
+                if first_entry.metadata.dep_type.is_empty() {
+                    eprintln!("❌ Error: '{}' doesn't appear to be an uptix.lock file.", lock_path.display());
+                    eprintln!("   Expected JSON with 'metadata' and 'lock' fields.");
+                    eprintln!("   Did you mean to specify 'uptix.lock' instead?");
+                    std::process::exit(1);
+                }
+            }
+            Ok(())
+        }
+        Err(e) => {
+            if existing_content.trim().starts_with('{') {
+                // It's JSON but not uptix format
+                eprintln!("❌ Error: '{}' doesn't appear to be an uptix.lock file.", lock_path.display());
+                eprintln!("   Parse error: {}", e);
+                eprintln!("   Did you mean to specify 'uptix.lock' instead?");
+            } else {
+                eprintln!("❌ Error: '{}' is not a valid JSON file.", lock_path.display());
+            }
+            std::process::exit(1);
+        }
     }
 }
