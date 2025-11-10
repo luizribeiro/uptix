@@ -105,7 +105,8 @@ impl Dependency {
         node: &SyntaxNode,
     ) -> Result<Option<Dependency>, Error> {
         match func {
-            "uptix.dockerImage" => Ok(Some(Dependency::Docker(Docker::new(context, &node)?))),
+            "uptix.dockerImage" => Ok(Some(Dependency::Docker(Docker::new(context, &node, false)?))),
+            "uptix.pullDockerImage" => Ok(Some(Dependency::Docker(Docker::new(context, &node, true)?))),
             "uptix.githubBranch" => Ok(Some(Dependency::GitHubBranch(GitHubBranch::new(
                 context, &node,
             )?))),

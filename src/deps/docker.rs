@@ -19,6 +19,7 @@ pub struct Docker {
     image: String,
     tag: String,
     use_https: bool,
+    needs_nix_hash: bool, // true if used with uptix.pullDockerImage
 }
 
 const DEFAULT_REGISTRY: &str = "registry-1.docker.io";
@@ -71,7 +72,7 @@ impl Docker {
         self.registry == DEFAULT_REGISTRY
     }
 
-    pub fn new(context: &ParsingContext, node: &SyntaxNode) -> Result<Docker, Error> {
+    pub fn new(context: &ParsingContext, node: &SyntaxNode, needs_nix_hash: bool) -> Result<Docker, Error> {
         let string_node = assert_kind(
             context,
             "uptix.dockerImage",
@@ -87,7 +88,9 @@ impl Docker {
         // Remove the quotes from the string
         let text = string_node.text().to_string();
         let text = text.trim_matches('"');
-        return Docker::from(text);
+        let mut docker = Docker::from(text)?;
+        docker.needs_nix_hash = needs_nix_hash;
+        return Ok(docker);
     }
 
     /// Reconstructs a Docker dependency from a lock entry.
@@ -137,6 +140,7 @@ impl Docker {
             image,
             tag,
             use_https: true,
+            needs_nix_hash: false, // default to false, will be set by new()
         });
     }
 
@@ -499,8 +503,27 @@ impl Lockable for Docker {
         // Fetch image metadata (labels, creation timestamp)
         let (friendly_version_opt, timestamp) = self.fetch_image_metadata().await?;
 
-        // Compute both the image digest and Nix store hash
-        let (image_digest, nix_hash) = self.compute_nix_hash().await?;
+        // If the image is used with pullDockerImage, compute both digest and Nix hash
+        // Otherwise, just get the digest from the registry API
+        let (image_digest, lock_value) = if self.needs_nix_hash {
+            let (digest, nix_hash) = self.compute_nix_hash().await?;
+            let lock_data = DockerLock {
+                image_digest: digest.clone(),
+                sha256: nix_hash,
+            };
+            (digest, serde_json::to_value(lock_data).unwrap())
+        } else {
+            let digest = match self.latest_digest().await? {
+                Some(d) => d,
+                None => {
+                    return Err(Error::StringError(format!(
+                        "Could not find digest for image {} on registry",
+                        self.name,
+                    )))
+                }
+            };
+            (digest.clone(), serde_json::Value::String(digest))
+        };
 
         // Use friendly version from metadata, or fall back to digest
         let resolved_version = friendly_version_opt.unwrap_or_else(|| image_digest.clone());
@@ -518,15 +541,9 @@ impl Lockable for Docker {
             ),
         };
 
-        // Create the lock data with both hashes
-        let lock_data = DockerLock {
-            image_digest,
-            sha256: nix_hash,
-        };
-
         Ok(LockEntry {
             metadata,
-            lock: serde_json::to_value(lock_data).unwrap(),
+            lock: lock_value,
         })
     }
 
@@ -558,6 +575,7 @@ mod tests {
             tag: "15".to_string(),
             name: "postgres:15".to_string(),
             use_https: true,
+            needs_nix_hash: false,
         };
 
         // Should match full name with tag
@@ -582,6 +600,7 @@ mod tests {
             tag: "latest".to_string(),
             name: "gcr.io/my-project/my-image:latest".to_string(),
             use_https: true,
+            needs_nix_hash: false,
         };
 
         assert!(docker.matches("gcr.io/my-project/my-image:latest"));
@@ -611,6 +630,7 @@ mod tests {
                 image: "homeassistant/home-assistant".to_string(),
                 tag: "stable".to_string(),
                 use_https: true,
+            needs_nix_hash: false,
             },
             Docker {
                 name: "foo.io/baz/bar".to_string(),
@@ -618,6 +638,7 @@ mod tests {
                 image: "baz/bar".to_string(),
                 tag: "latest".to_string(),
                 use_https: true,
+            needs_nix_hash: false,
             },
             Docker {
                 name: "postgres:15".to_string(),
@@ -625,6 +646,7 @@ mod tests {
                 image: "postgres".to_string(),
                 tag: "15".to_string(),
                 use_https: true,
+            needs_nix_hash: false,
             },
             Docker {
                 name: "redis:7-alpine".to_string(),
@@ -632,6 +654,7 @@ mod tests {
                 image: "redis".to_string(),
                 tag: "7-alpine".to_string(),
                 use_https: true,
+            needs_nix_hash: false,
             },
             Docker {
                 name: "clickhouse/clickhouse-server:23.11".to_string(),
@@ -639,6 +662,7 @@ mod tests {
                 image: "clickhouse/clickhouse-server".to_string(),
                 tag: "23.11".to_string(),
                 use_https: true,
+            needs_nix_hash: false,
             },
         ];
         assert_eq!(dependencies, expected_dependencies);
@@ -672,6 +696,7 @@ mod tests {
             image: "homeassistant/home-assistant".to_string(),
             tag: "stable".to_string(),
             use_https: false,
+            needs_nix_hash: true, // Test with Nix hash enabled
         };
         let lock_entry = dependency.lock_with_metadata().await.unwrap();
         assert_eq!(lock_entry.metadata.name, "homeassistant/home-assistant");
@@ -745,6 +770,7 @@ mod tests {
             image: "homeassistant/home-assistant".to_string(),
             tag: "stable".to_string(),
             use_https: false,
+            needs_nix_hash: true, // Test with Nix hash enabled
         };
 
         let lock_entry = dependency.lock_with_metadata().await.unwrap();
@@ -830,6 +856,7 @@ mod tests {
             image: image_name.to_string(),
             tag: tag.to_string(),
             use_https: false,
+            needs_nix_hash: false,
         };
 
         let lock_entry = dependency.lock_with_metadata().await.unwrap();
@@ -862,6 +889,7 @@ mod tests {
             image: "postgres".to_string(),
             tag: "15".to_string(),
             use_https: true,
+            needs_nix_hash: false,
         };
 
         // Extract the code that computes the image name with the library/ prefix
@@ -881,6 +909,7 @@ mod tests {
             image: "postgres".to_string(),
             tag: "15".to_string(),
             use_https: true,
+            needs_nix_hash: false,
         };
 
         let image_name = if docker.is_docker_hub() && !docker.image.contains('/') {
@@ -899,6 +928,7 @@ mod tests {
             image: "bitnami/postgresql".to_string(),
             tag: "15".to_string(),
             use_https: true,
+            needs_nix_hash: false,
         };
 
         let image_name = if docker.is_docker_hub() && !docker.image.contains('/') {
