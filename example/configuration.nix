@@ -33,20 +33,23 @@ in
   imports = [ ./hardware-configuration.nix ];
 
   virtualisation.oci-containers.containers = {
+    # Example using pullDockerImage: image is stored in Nix store
+    # Avoids runtime registry access and rate limits, but slower initial build
     homeassistant = {
-      # this container is using the latest released docker image under the
-      # stable tag
-      image = uptix.dockerImage "homeassistant/home-assistant:stable";
+      imageFile = uptix.pullDockerImage "homeassistant/home-assistant:stable";
+      image = "homeassistant/home-assistant:stable";
     };
+
+    # Example using dockerImage: image is pulled at runtime with pinned digest
+    # Faster builds, but subject to registry rate limits at runtime
     zigbee2mqtt = {
-      # this container is using the latest released docker image under the
-      # stable tag
       image = uptix.dockerImage "koenkk/zigbee2mqtt:latest";
     };
-    # This is the postgres:15 image that was causing the 401 Unauthorized error
-    # Our fix should now handle this correctly
+
+    # Another example using pullDockerImage
     postgres = {
-      image = uptix.dockerImage "postgres:15";
+      imageFile = uptix.pullDockerImage "postgres:15";
+      image = "postgres:15";
       volumes = [ "postgres-data:/var/lib/postgresql/data" ];
       environment = {
         POSTGRES_PASSWORD = "postgres";
