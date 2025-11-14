@@ -189,11 +189,32 @@ fn test_update_specific_dependency() {
     }"#;
     fs::write(temp_dir.path().join("test.nix"), nix_content).unwrap();
 
-    // Create initial lock file
+    // Create initial lock file with new format
     let lock_content = r#"{
-        "postgres:15": "sha256:oldhash",
-        "redis:latest": "sha256:redishash"
-    }"#;
+  "postgres:15": {
+    "metadata": {
+      "name": "postgres",
+      "selected_version": "15",
+      "resolved_version": "sha256:oldhash",
+      "dep_type": "docker",
+      "description": "Docker image postgres:15 from registry-1.docker.io"
+    },
+    "lock": {
+      "imageDigest": "sha256:oldhash",
+      "sha256": "sha256-oldnixhash"
+    }
+  },
+  "redis:latest": {
+    "metadata": {
+      "name": "redis",
+      "selected_version": "latest",
+      "resolved_version": "sha256:redishash",
+      "dep_type": "docker",
+      "description": "Docker image redis:latest from registry-1.docker.io"
+    },
+    "lock": "sha256:redishash"
+  }
+}"#;
     fs::write(temp_dir.path().join("uptix.lock"), lock_content).unwrap();
 
     let output = Command::new(uptix_binary())

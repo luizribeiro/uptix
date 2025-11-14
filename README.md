@@ -6,6 +6,8 @@ A tool for pinning (and updating) external dependencies on NixOS configurations.
 
 ## Setup
 
+### Standard NixOS Module Usage
+
 On your `flake.nix`, just add this repository as an input and add the
 `uptix.nixosModules.uptix` module to your configurations:
 
@@ -13,7 +15,7 @@ On your `flake.nix`, just add this repository as an input and add the
 {
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/master";
   inputs.uptix.url = "github:luizribeiro/uptix";
-  
+
   outputs = { nixpkgs, uptix, ... }: {
     nixosConfigurations.somehost = nixpkgs.lib.nixosSystem {
       system = "x86_64-linux";
@@ -30,7 +32,28 @@ On your `flake.nix`, just add this repository as an input and add the
 ```
 
 Once that is done, you should be able to use it from your configurations, as
-`uptix` will be passed as an arugment to all modules on your configuration.
+`uptix` will be passed as an argument to all modules on your configuration.
+
+### Advanced: Using uptix Outside NixOS Modules
+
+If you need to access uptix functions outside of the standard NixOS module system
+(for example, in overlays or standalone derivations), you need to manually provide
+the `pkgs` parameter:
+
+```nix
+nixpkgs.overlays = [
+  (final: prev: {
+    myPackage =
+      let
+        # Access uptix functions by providing pkgs
+        uptix = (args.uptix.nixosModules.uptix ../uptix.lock { pkgs = prev; })._module.args.uptix;
+      in
+      prev.stdenv.mkDerivation {
+        # ... use uptix functions here ...
+      };
+  })
+];
+```
 
 If you have a shell setup on your flake, you will probably also want to
 install `uptix` onto your `flake.nix`'s `devShell`:
