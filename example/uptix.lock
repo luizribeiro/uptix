@@ -1,1 +1,77 @@
-{}
+{
+  "$GITHUB_BRANCH$:luizribeiro/hello-world-rs:main$": {
+    "metadata": {
+      "name": "luizribeiro/hello-world-rs",
+      "selected_version": "main",
+      "resolved_version": "69a9b51 (Added a dependency as a workaround)",
+      "timestamp": "2022-05-05T02:02:32Z",
+      "dep_type": "github-branch",
+      "description": "GitHub branch main from luizribeiro/hello-world-rs"
+    },
+    "lock": {
+      "deepClone": false,
+      "fetchSubmodules": false,
+      "leaveDotGit": false,
+      "owner": "luizribeiro",
+      "repo": "hello-world-rs",
+      "rev": "69a9b5193833ea3c1efc390b1bba04a7e1862e78",
+      "sha256": "0fqn3c0zpg5qnswxng18px3h5afhrh7jwr61vyzpgj3ap4knbb4v"
+    }
+  },
+  "$GITHUB_RELEASE$:luizribeiro/hello-world-rs$": {
+    "metadata": {
+      "name": "luizribeiro/hello-world-rs",
+      "selected_version": "latest",
+      "resolved_version": "v0.1.0",
+      "timestamp": "2022-05-05T21:41:03Z",
+      "dep_type": "github-release",
+      "description": "GitHub release from luizribeiro/hello-world-rs"
+    },
+    "lock": {
+      "deepClone": false,
+      "fetchSubmodules": false,
+      "leaveDotGit": false,
+      "owner": "luizribeiro",
+      "repo": "hello-world-rs",
+      "rev": "v0.1.0",
+      "sha256": "0fqn3c0zpg5qnswxng18px3h5afhrh7jwr61vyzpgj3ap4knbb4v"
+    }
+  },
+  "homeassistant/home-assistant:stable": {
+    "metadata": {
+      "name": "homeassistant/home-assistant",
+      "selected_version": "stable",
+      "resolved_version": "2025.11.1",
+      "timestamp": "2025-11-07T21:41:33.919640751Z",
+      "dep_type": "docker",
+      "description": "Docker image homeassistant/home-assistant:stable from registry-1.docker.io"
+    },
+    "lock": {
+      "imageDigest": "sha256:c11dd7c74039223c43079d700aa559d6dc61e8e0b38a08d651f91d1bc550cff5",
+      "sha256": "sha256-vwB4cl3dX0SN9NUqV4amf4kDe1qhGzkqClrjhhatC2g="
+    }
+  },
+  "koenkk/zigbee2mqtt:latest": {
+    "metadata": {
+      "name": "koenkk/zigbee2mqtt",
+      "selected_version": "latest",
+      "resolved_version": "sha256:3baac2a3b74a9945fbbcb665b3e6e0ace5df2d49b5502e3d26b66a5454316e81",
+      "dep_type": "docker",
+      "description": "Docker image koenkk/zigbee2mqtt:latest from registry-1.docker.io"
+    },
+    "lock": "sha256:3baac2a3b74a9945fbbcb665b3e6e0ace5df2d49b5502e3d26b66a5454316e81"
+  },
+  "postgres:15": {
+    "metadata": {
+      "name": "postgres",
+      "selected_version": "15",
+      "resolved_version": "sha256:822f8795764a670160640888508b2a68ea5c4b045012c2de17e1d0447bdbdc99",
+      "dep_type": "docker",
+      "description": "Docker image postgres:15 from registry-1.docker.io"
+    },
+    "lock": {
+      "imageDigest": "sha256:822f8795764a670160640888508b2a68ea5c4b045012c2de17e1d0447bdbdc99",
+      "sha256": "sha256-4Ig3mcKYLgtgy59yum8pQSR+yLX0Wu9FpKKmLH3RTeQ="
+    }
+  }
+}
