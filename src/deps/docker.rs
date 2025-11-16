@@ -72,7 +72,11 @@ impl Docker {
         self.registry == DEFAULT_REGISTRY
     }
 
-    pub fn new(context: &ParsingContext, node: &SyntaxNode, needs_nix_hash: bool) -> Result<Docker, Error> {
+    pub fn new(
+        context: &ParsingContext,
+        node: &SyntaxNode,
+        needs_nix_hash: bool,
+    ) -> Result<Docker, Error> {
         let string_node = assert_kind(
             context,
             "uptix.dockerImage",
@@ -317,9 +321,7 @@ impl Docker {
 
         // Only request Schema2 manifests for metadata extraction
         // ManifestList doesn't contain config blobs directly
-        let _accepted_types = Some(vec![
-            (MediaTypes::ManifestV2S2, Some(1.0)),
-        ]);
+        let _accepted_types = Some(vec![(MediaTypes::ManifestV2S2, Some(1.0))]);
 
         // Get credentials if available
         let credentials = Self::get_credentials();
@@ -327,8 +329,14 @@ impl Docker {
         // Try to get manifest with authentication
         let login_scope = format!("repository:{}:pull", image_name);
 
-        let manifest = match self.build_authenticated_client(&credentials, &login_scope).await {
-            Ok(client) => match client.get_manifest(image_name.as_str(), self.tag.as_str()).await {
+        let manifest = match self
+            .build_authenticated_client(&credentials, &login_scope)
+            .await
+        {
+            Ok(client) => match client
+                .get_manifest(image_name.as_str(), self.tag.as_str())
+                .await
+            {
                 Ok(m) => m,
                 Err(_) => return Ok((None, None)),
             },
@@ -351,12 +359,18 @@ impl Docker {
                 let platform_digest = &first_manifest.unwrap().digest;
 
                 // Fetch the platform-specific manifest
-                let platform_client = match self.build_authenticated_client(&credentials, &login_scope).await {
+                let platform_client = match self
+                    .build_authenticated_client(&credentials, &login_scope)
+                    .await
+                {
                     Ok(client) => client,
                     Err(_) => return Ok((None, None)),
                 };
 
-                let platform_manifest = match platform_client.get_manifest_and_ref(&image_name, platform_digest).await {
+                let platform_manifest = match platform_client
+                    .get_manifest_and_ref(&image_name, platform_digest)
+                    .await
+                {
                     Ok((m, _)) => m,
                     Err(_) => return Ok((None, None)),
                 };
@@ -371,7 +385,10 @@ impl Docker {
         };
 
         // Fetch the config blob
-        let client = match self.build_authenticated_client(&credentials, &login_scope).await {
+        let client = match self
+            .build_authenticated_client(&credentials, &login_scope)
+            .await
+        {
             Ok(client) => client,
             Err(_) => return Ok((None, None)),
         };
@@ -402,9 +419,9 @@ impl Docker {
             })
             .or_else(|| {
                 // Fall back to using creation date as YYYY-MM-DD
-                timestamp.as_ref().and_then(|ts| {
-                    ts.split('T').next().map(|date| date.to_string())
-                })
+                timestamp
+                    .as_ref()
+                    .and_then(|ts| ts.split('T').next().map(|date| date.to_string()))
             });
 
         Ok((friendly_version, timestamp))
@@ -458,8 +475,8 @@ impl Docker {
         }
 
         // Parse the JSON output
-        let result: NixPrefetchDockerOutput = serde_json::from_slice(&output.stdout)
-            .map_err(|e| {
+        let result: NixPrefetchDockerOutput =
+            serde_json::from_slice(&output.stdout).map_err(|e| {
                 Error::StringError(format!("Failed to parse nix-prefetch-docker output: {}", e))
             })?;
 
@@ -482,7 +499,10 @@ impl Docker {
         };
 
         // Return a hard-coded mock Nix hash
-        Ok((digest, "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=".to_string()))
+        Ok((
+            digest,
+            "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=".to_string(),
+        ))
     }
 }
 
@@ -630,7 +650,7 @@ mod tests {
                 image: "homeassistant/home-assistant".to_string(),
                 tag: "stable".to_string(),
                 use_https: true,
-            needs_nix_hash: false,
+                needs_nix_hash: false,
             },
             Docker {
                 name: "foo.io/baz/bar".to_string(),
@@ -638,7 +658,7 @@ mod tests {
                 image: "baz/bar".to_string(),
                 tag: "latest".to_string(),
                 use_https: true,
-            needs_nix_hash: false,
+                needs_nix_hash: false,
             },
             Docker {
                 name: "postgres:15".to_string(),
@@ -646,7 +666,7 @@ mod tests {
                 image: "postgres".to_string(),
                 tag: "15".to_string(),
                 use_https: true,
-            needs_nix_hash: false,
+                needs_nix_hash: false,
             },
             Docker {
                 name: "redis:7-alpine".to_string(),
@@ -654,7 +674,7 @@ mod tests {
                 image: "redis".to_string(),
                 tag: "7-alpine".to_string(),
                 use_https: true,
-            needs_nix_hash: false,
+                needs_nix_hash: false,
             },
             Docker {
                 name: "clickhouse/clickhouse-server:23.11".to_string(),
@@ -662,7 +682,7 @@ mod tests {
                 image: "clickhouse/clickhouse-server".to_string(),
                 tag: "23.11".to_string(),
                 use_https: true,
-            needs_nix_hash: false,
+                needs_nix_hash: false,
             },
         ];
         assert_eq!(dependencies, expected_dependencies);
@@ -707,8 +727,14 @@ mod tests {
 
         // Check the new lock format with both hashes
         let lock_obj = lock_entry.lock.as_object().unwrap();
-        assert_eq!(lock_obj.get("imageDigest").unwrap().as_str().unwrap(), "sha256:foobar");
-        assert_eq!(lock_obj.get("sha256").unwrap().as_str().unwrap(), "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=");
+        assert_eq!(
+            lock_obj.get("imageDigest").unwrap().as_str().unwrap(),
+            "sha256:foobar"
+        );
+        assert_eq!(
+            lock_obj.get("sha256").unwrap().as_str().unwrap(),
+            "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+        );
 
         mockito::reset();
     }
@@ -722,7 +748,11 @@ mod tests {
             .with_status(401)
             .with_header(
                 "WWW-Authenticate",
-                format!(r#"Bearer realm="http://{}/token",service="registry""#, registry).as_str(),
+                format!(
+                    r#"Bearer realm="http://{}/token",service="registry""#,
+                    registry
+                )
+                .as_str(),
             )
             .with_body("{}")
             .create();
@@ -735,12 +765,18 @@ mod tests {
         // Mock manifest request returning a Schema2 manifest
         // The config digest must match the SHA256 of the blob content
         let blob_content = r#"{"architecture":"amd64","created":"2024-11-03T10:23:45Z","config":{"Labels":{"org.opencontainers.image.version":"2024.11.3","maintainer":"Home Assistant"}}}"#;
-        let config_digest = "sha256:74f41486f45b7ac13af8770839bf41734f9240efbaad0bfdf4fb8728244c36cf";
+        let config_digest =
+            "sha256:74f41486f45b7ac13af8770839bf41734f9240efbaad0bfdf4fb8728244c36cf";
 
-        let _manifest_mock = mockito::mock("GET", "/v2/homeassistant/home-assistant/manifests/stable")
-            .with_status(200)
-            .with_header("content-type", "application/vnd.docker.distribution.manifest.v2+json")
-            .with_body(format!(r#"{{
+        let _manifest_mock =
+            mockito::mock("GET", "/v2/homeassistant/home-assistant/manifests/stable")
+                .with_status(200)
+                .with_header(
+                    "content-type",
+                    "application/vnd.docker.distribution.manifest.v2+json",
+                )
+                .with_body(format!(
+                    r#"{{
                 "schemaVersion": 2,
                 "mediaType": "application/vnd.docker.distribution.manifest.v2+json",
                 "config": {{
@@ -749,20 +785,27 @@ mod tests {
                     "digest": "{}"
                 }},
                 "layers": []
-            }}"#, blob_content.len(), config_digest))
-            .create();
+            }}"#,
+                    blob_content.len(),
+                    config_digest
+                ))
+                .create();
 
         // Mock blob request returning image config with labels
-        let _blob_mock = mockito::mock("GET", format!("/v2/homeassistant/home-assistant/blobs/{}", config_digest).as_str())
-            .with_status(200)
-            .with_body(blob_content)
-            .create();
+        let _blob_mock = mockito::mock(
+            "GET",
+            format!("/v2/homeassistant/home-assistant/blobs/{}", config_digest).as_str(),
+        )
+        .with_status(200)
+        .with_body(blob_content)
+        .create();
 
         // Mock digest request for lock_with_metadata
-        let _digest_mock = mockito::mock("HEAD", "/v2/homeassistant/home-assistant/manifests/stable")
-            .with_status(200)
-            .with_header("docker-content-digest", "sha256:actualdigest456")
-            .create();
+        let _digest_mock =
+            mockito::mock("HEAD", "/v2/homeassistant/home-assistant/manifests/stable")
+                .with_status(200)
+                .with_header("docker-content-digest", "sha256:actualdigest456")
+                .create();
 
         let dependency = Docker {
             name: "homeassistant/home-assistant:stable".to_string(),
@@ -789,8 +832,14 @@ mod tests {
 
         // Check that the lock contains both hashes in the new format
         let lock_obj = lock_entry.lock.as_object().unwrap();
-        assert_eq!(lock_obj.get("imageDigest").unwrap().as_str().unwrap(), "sha256:actualdigest456");
-        assert_eq!(lock_obj.get("sha256").unwrap().as_str().unwrap(), "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=");
+        assert_eq!(
+            lock_obj.get("imageDigest").unwrap().as_str().unwrap(),
+            "sha256:actualdigest456"
+        );
+        assert_eq!(
+            lock_obj.get("sha256").unwrap().as_str().unwrap(),
+            "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+        );
 
         mockito::reset();
     }
@@ -804,7 +853,11 @@ mod tests {
             .with_status(401)
             .with_header(
                 "WWW-Authenticate",
-                format!(r#"Bearer realm="http://{}/token",service="registry""#, registry).as_str(),
+                format!(
+                    r#"Bearer realm="http://{}/token",service="registry""#,
+                    registry
+                )
+                .as_str(),
             )
             .with_body("{}")
             .create();
@@ -821,12 +874,20 @@ mod tests {
         // Mock manifest
         // The config digest must match the SHA256 of the blob content
         let blob_content = r#"{"architecture":"amd64","created":"2024-11-01T14:32:10Z","config":{"Labels":{"maintainer":"My Company"}}}"#;
-        let config_digest = "sha256:6c583f785142603ae46e0750c14d43670c3ab0d2ed46e96dc322149de7efa736";
+        let config_digest =
+            "sha256:6c583f785142603ae46e0750c14d43670c3ab0d2ed46e96dc322149de7efa736";
 
-        let _manifest_mock = mockito::mock("GET", format!("/v2/{}/manifests/{}", image_name, tag).as_str())
-            .with_status(200)
-            .with_header("content-type", "application/vnd.docker.distribution.manifest.v2+json")
-            .with_body(format!(r#"{{
+        let _manifest_mock = mockito::mock(
+            "GET",
+            format!("/v2/{}/manifests/{}", image_name, tag).as_str(),
+        )
+        .with_status(200)
+        .with_header(
+            "content-type",
+            "application/vnd.docker.distribution.manifest.v2+json",
+        )
+        .with_body(format!(
+            r#"{{
                 "schemaVersion": 2,
                 "mediaType": "application/vnd.docker.distribution.manifest.v2+json",
                 "config": {{
@@ -835,20 +896,29 @@ mod tests {
                     "digest": "{}"
                 }},
                 "layers": []
-            }}"#, blob_content.len(), config_digest))
-            .create();
+            }}"#,
+            blob_content.len(),
+            config_digest
+        ))
+        .create();
 
         // Mock blob with no version label, only created date
-        let _blob_mock = mockito::mock("GET", format!("/v2/{}/blobs/{}", image_name, config_digest).as_str())
-            .with_status(200)
-            .with_body(blob_content)
-            .create();
+        let _blob_mock = mockito::mock(
+            "GET",
+            format!("/v2/{}/blobs/{}", image_name, config_digest).as_str(),
+        )
+        .with_status(200)
+        .with_body(blob_content)
+        .create();
 
         // Mock digest request
-        let _digest_mock = mockito::mock("HEAD", format!("/v2/{}/manifests/{}", image_name, tag).as_str())
-            .with_status(200)
-            .with_header("docker-content-digest", "sha256:actualdigest")
-            .create();
+        let _digest_mock = mockito::mock(
+            "HEAD",
+            format!("/v2/{}/manifests/{}", image_name, tag).as_str(),
+        )
+        .with_status(200)
+        .with_header("docker-content-digest", "sha256:actualdigest")
+        .create();
 
         let dependency = Docker {
             name: format!("{}:{}", image_name, tag),

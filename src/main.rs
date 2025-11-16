@@ -36,6 +36,8 @@ enum Commands {
     },
     /// Initialize an empty lock file
     Init,
+    /// Discover new dependencies in the codebase
+    Discover,
 }
 
 #[tokio::main]
@@ -55,12 +57,11 @@ async fn main() -> Result<()> {
     };
 
     match args.command {
-        Commands::Update { dependency } => {
-            update_command(&root_dir, &lock_path, dependency).await
-        }
+        Commands::Update { dependency } => update_command(&root_dir, &lock_path, dependency).await,
         Commands::List => list_command(&lock_path),
         Commands::Show { dependency } => show_command(&lock_path, &dependency),
         Commands::Init => init_command(&lock_path),
+        Commands::Discover => discover_command(&root_dir, &lock_path).await,
     }
 }
 
@@ -70,6 +71,22 @@ async fn update_command(
     dependency: Option<String>,
 ) -> Result<()> {
     update_command_in_dir(root_dir, lock_path, dependency).await
+}
+
+fn discover_and_parse_dependencies(root_path: &Path) -> Result<Vec<Dependency>> {
+    let all_files = util::discover_nix_files(root_path.to_str().unwrap());
+    println!("Found {} nix files", all_files.len());
+
+    print!("Parsing files... ");
+    std::io::stdout().flush().into_diagnostic()?;
+    let mut all_dependencies: Vec<Dependency> = vec![];
+    for f in all_files {
+        let mut deps = collect_file_dependencies(f.to_str().unwrap())?;
+        all_dependencies.append(&mut deps);
+    }
+    println!("Done.");
+
+    Ok(all_dependencies)
 }
 
 async fn update_command_in_dir(
@@ -82,17 +99,7 @@ async fn update_command_in_dir(
         validate_lock_file(lock_path)?;
     }
 
-    let all_files = util::discover_nix_files(root_path.to_str().unwrap());
-    println!("Found {} nix files", all_files.len());
-
-    print!("Parsing files... ");
-    std::io::stdout().flush().into_diagnostic()?;
-    let mut all_dependencies: Vec<Dependency> = vec![];
-    for f in all_files {
-        let mut deps = collect_file_dependencies(f.to_str().unwrap())?;
-        all_dependencies.append(&mut deps);
-    }
-    println!("Done.");
+    let all_dependencies = discover_and_parse_dependencies(root_path)?;
 
     // Filter dependencies if a specific one is requested
     let dependencies_to_update = if let Some(ref dep_pattern) = dependency {
@@ -269,6 +276,10 @@ fn init_command(lock_path: &Path) -> Result<()> {
     init_command_in_dir(lock_path)
 }
 
+async fn discover_command(root_dir: &Path, lock_path: &Path) -> Result<()> {
+    discover_command_in_dir(root_dir, lock_path).await
+}
+
 fn init_command_in_dir(lock_path: &Path) -> Result<()> {
     if lock_path.exists() {
         eprintln!("Error: uptix.lock already exists. Use 'uptix update' to update dependencies.");
@@ -279,6 +290,104 @@ fn init_command_in_dir(lock_path: &Path) -> Result<()> {
     let json = serde_json::to_string_pretty(&empty_lock).into_diagnostic()?;
     fs::write(&lock_path, json).into_diagnostic()?;
     println!("Created empty uptix.lock file.");
+
+    Ok(())
+}
+
+async fn discover_command_in_dir(root_dir: &Path, lock_path: &Path) -> Result<()> {
+    // Validate lock file format first, before doing any expensive operations
+    if lock_path.exists() {
+        validate_lock_file(lock_path)?;
+    }
+
+    let all_dependencies = discover_and_parse_dependencies(root_dir)?;
+
+    if all_dependencies.is_empty() {
+        println!("No uptix dependencies found in the codebase.");
+        return Ok(());
+    }
+
+    // Load existing lock file if it exists
+    let mut lock_file: LockFile = if lock_path.exists() {
+        let existing_content = fs::read_to_string(&lock_path).into_diagnostic()?;
+        serde_json::from_str(&existing_content).into_diagnostic()?
+    } else {
+        LockFile::new()
+    };
+
+    // Find new dependencies (not in existing lock file)
+    let mut new_dependencies = Vec::new();
+    for dependency in &all_dependencies {
+        let dep_key = dependency.key();
+        if !lock_file.contains_key(&dep_key) {
+            new_dependencies.push(dependency);
+        }
+    }
+
+    if new_dependencies.is_empty() {
+        println!("All dependencies are already tracked in uptix.lock.");
+        return Ok(());
+    }
+
+    println!("{} new dependencies discovered:", new_dependencies.len());
+    println!("{:<35} {:<30}", "DEPENDENCY", "TYPE");
+    println!("{}", "-".repeat(65));
+
+    for dependency in &new_dependencies {
+        let dep_key = dependency.key();
+        let type_display = dependency.type_display();
+
+        println!("{:<35} {:<30}", dep_key, type_display);
+    }
+
+    println!();
+    print!("Fetching metadata for new dependencies... ");
+    std::io::stdout().flush().into_diagnostic()?;
+
+    let mut errors = Vec::new();
+    let mut successful_count = 0;
+
+    for dependency in new_dependencies {
+        match dependency.lock_with_metadata().await {
+            Ok(entry) => {
+                lock_file.insert(dependency.key().to_string(), entry);
+                successful_count += 1;
+            }
+            Err(e) => {
+                errors.push((dependency.key(), e));
+            }
+        }
+    }
+    println!("Done.");
+
+    if !errors.is_empty() {
+        println!();
+        println!(
+            "⚠️  Failed to fetch metadata for {} dependencies:",
+            errors.len()
+        );
+        for (dep_key, error) in &errors {
+            println!("  - {}: {}", dep_key, error);
+        }
+        println!();
+
+        if successful_count > 0 {
+            println!("Successfully fetched {} dependencies.", successful_count);
+            println!("Lock file will be updated with the successful dependencies only.");
+        } else {
+            println!("No dependencies were successfully fetched.");
+            println!("Lock file will not be modified.");
+            return Err(miette::miette!(
+                "Failed to fetch metadata for all dependencies"
+            ));
+        }
+    }
+
+    let mut file = fs::File::create(&lock_path).expect("Error creating uptix.lock");
+    let json = serde_json::to_string_pretty(&lock_file).into_diagnostic()?;
+    file.write_all(json.as_bytes())
+        .expect("Error writing JSON to uptix.lock");
+    println!("Wrote uptix.lock successfully");
 
     Ok(())
 }
@@ -335,6 +444,73 @@ mod tests {
     fn test_parse_init_command() {
         let args = Args::parse_from(&["uptix", "init"]);
         matches!(args.command, Commands::Init);
+    }
+
+    #[test]
+    fn test_parse_discover_command() {
+        let args = Args::parse_from(&["uptix", "discover"]);
+        matches!(args.command, Commands::Discover);
+    }
+
+    #[test]
+    fn test_discover_shared_function_parsing() {
+        // Test that the shared function correctly discovers and parses dependencies
+        // This tests the non-async part of discover (file discovery and parsing)
+        // Full discover functionality with network calls is tested via integration tests
+        let temp_dir = TempDir::new().unwrap();
+        let temp_path = temp_dir.path();
+
+        // Create a simple nix file with no uptix dependencies
+        let nix_file = temp_path.join("test.nix");
+        fs::write(&nix_file, "{ pkgs }: { }").unwrap();
+
+        // Test that we can discover and parse (should find 0 dependencies)
+        let result = discover_and_parse_dependencies(temp_path);
+        assert!(result.is_ok());
+        let deps = result.unwrap();
+        assert_eq!(deps.len(), 0);
+    }
+
+    #[test]
+    fn test_discover_parses_actual_uptix_dependencies() {
+        // Test that we can parse actual uptix function calls
+        let temp_dir = TempDir::new().unwrap();
+        let temp_path = temp_dir.path();
+
+        // Create nix files with various uptix dependencies
+        let docker_file = temp_path.join("docker.nix");
+        fs::write(
+            &docker_file,
+            r#"{
+                postgres = uptix.dockerImage "postgres:15";
+                redis = uptix.dockerImage "redis:latest";
+            }"#,
+        )
+        .unwrap();
+
+        let github_file = temp_path.join("github.nix");
+        fs::write(
+            &github_file,
+            r#"{
+                myApp = uptix.githubRelease {
+                    owner = "luizribeiro";
+                    repo = "hello-world-rs";
+                };
+            }"#,
+        )
+        .unwrap();
+
+        // Test that we discover all dependencies
+        let result = discover_and_parse_dependencies(temp_path);
+        assert!(result.is_ok());
+        let deps = result.unwrap();
+        assert_eq!(deps.len(), 3, "Should find 3 dependencies");
+
+        // Verify the dependency keys
+        let keys: Vec<String> = deps.iter().map(|d| d.key()).collect();
+        assert!(keys.contains(&"postgres:15".to_string()));
+        assert!(keys.contains(&"redis:latest".to_string()));
+        assert!(keys.contains(&"$GITHUB_RELEASE$:luizribeiro/hello-world-rs$".to_string()));
     }
 
     #[test]
@@ -494,7 +670,10 @@ fn validate_lock_file(lock_path: &Path) -> Result<()> {
             if !lock.is_empty() {
                 let first_entry = lock.values().next().unwrap();
                 if first_entry.metadata.dep_type.is_empty() {
-                    eprintln!("❌ Error: '{}' doesn't appear to be an uptix.lock file.", lock_path.display());
+                    eprintln!(
+                        "❌ Error: '{}' doesn't appear to be an uptix.lock file.",
+                        lock_path.display()
+                    );
                     eprintln!("   Expected JSON with 'metadata' and 'lock' fields.");
                     eprintln!("   Did you mean to specify 'uptix.lock' instead?");
                     std::process::exit(1);
@@ -505,11 +684,17 @@ fn validate_lock_file(lock_path: &Path) -> Result<()> {
         Err(e) => {
             if existing_content.trim().starts_with('{') {
                 // It's JSON but not uptix format
-                eprintln!("❌ Error: '{}' doesn't appear to be an uptix.lock file.", lock_path.display());
+                eprintln!(
+                    "❌ Error: '{}' doesn't appear to be an uptix.lock file.",
+                    lock_path.display()
+                );
                 eprintln!("   Parse error: {}", e);
                 eprintln!("   Did you mean to specify 'uptix.lock' instead?");
             } else {
-                eprintln!("❌ Error: '{}' is not a valid JSON file.", lock_path.display());
+                eprintln!(
+                    "❌ Error: '{}' is not a valid JSON file.",
+                    lock_path.display()
+                );
             }
             std::process::exit(1);
         }
