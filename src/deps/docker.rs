@@ -14,12 +14,12 @@ use std::process::Command;
 
 #[derive(PartialEq, Clone, Debug)]
 pub struct Docker {
-    name: String,
-    registry: String,
-    image: String,
-    tag: String,
-    use_https: bool,
-    needs_nix_hash: bool, // true if used with uptix.pullDockerImage
+    pub(crate) name: String,
+    pub(crate) registry: String,
+    pub(crate) image: String,
+    pub(crate) tag: String,
+    pub(crate) use_https: bool,
+    pub(crate) needs_nix_hash: bool, // true if used with uptix.pullDockerImage
 }
 
 const DEFAULT_REGISTRY: &str = "registry-1.docker.io";

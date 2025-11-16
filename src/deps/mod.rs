@@ -2,7 +2,7 @@ mod docker;
 mod github;
 mod test_util;
 
-use crate::deps::docker::Docker;
+pub(crate) use crate::deps::docker::Docker;
 use crate::deps::github::branch::GitHubBranch;
 use crate::deps::github::release::GitHubRelease;
 use crate::error::Error;
