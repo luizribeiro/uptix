@@ -16,7 +16,7 @@ async-trait = "0.1.58"
 base64 = "0.21"
 clap = { version = "4.5", features = ["derive"] }
 # see https://github.com/camallo/dkregistry-rs/issues/209
-dkregistry = { git = "https://github.com/luizribeiro/dkregistry-rs.git", rev = "4889b521cb3a325fdd6df51d839baa5cfd50d6c5" }
+dkregistry = { git = "https://github.com/luizribeiro/dkregistry-rs.git", rev = "91a4ae0364ef5d1c61c55fadbdf9190bc4a7c430" }
 enum-as-inner = "0.5.1"
 erased-serde = "0.3.24"
 lazy_static = "1.4.0"
