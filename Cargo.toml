@@ -17,7 +17,7 @@ base64 = "0.21"
 clap = { version = "4.5", features = ["derive"] }
 # see https://github.com/camallo/dkregistry-rs/issues/209
 dkregistry = { git = "https://github.com/luizribeiro/dkregistry-rs.git", rev = "4889b521cb3a325fdd6df51d839baa5cfd50d6c5" }
-enum-as-inner = "0.5.1"
+enum-as-inner = "0.6.0"
 erased-serde = "0.3.24"
 lazy_static = "1.4.0"
 miette = { version = "5.4.1", features = ["fancy"] }
