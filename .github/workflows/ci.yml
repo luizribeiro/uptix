@@ -38,7 +38,7 @@ jobs:
       - uses: cachix/install-nix-action@v31
         with:
           extra_nix_config: "allow-dirty-locks = true"
-      - uses: cachix/cachix-action@v15
+      - uses: cachix/cachix-action@v16
         with:
           name: uptix
           authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
