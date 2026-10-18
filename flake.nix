@@ -21,6 +21,14 @@
         version = "0.1.0";
         src = ./.;
         cargoLock.lockFile = ./Cargo.lock;
+        # Tests run mockito's HTTP server on loopback, which the darwin
+        # sandbox blocks by default.
+        __darwinAllowLocalNetworking = true;
+        # reqwest 0.11 queries configd for system proxies whenever a client is
+        # built, and system-configuration 0.5 panics when the sandbox denies it.
+        sandboxProfile = ''
+          (allow mach-lookup (global-name "com.apple.SystemConfiguration.configd"))
+        '';
         cargoLock.outputHashes = {
           "dkregistry-0.5.1-alpha.0" = "sha256-s2F+g5e02HOLQGNPnl4NYe4IQqYI9R84by7hiT3J26I=";
         };
